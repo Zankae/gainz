@@ -111,7 +111,13 @@ export default function HistoryScreen({ onNavigate }: { onNavigate?: (tab: 'home
   const saveTemplate = async (name: string) => {
     if (!templatePrompt) return;
     const exerciseIds = templatePrompt.exercises.map(e => e.exercise.id!);
-    await db.templates.add({ name, exerciseIds, lastUsedAt: null });
+    const draft = {
+      exercises: templatePrompt.exercises.map(e => ({
+        exerciseId: e.exercise.id!,
+        sets: e.sets.map(s => ({ weightKg: s.weightKg, reps: s.reps })),
+      })),
+    };
+    await db.templates.add({ name, exerciseIds, draftJson: JSON.stringify(draft), lastUsedAt: null });
   };
 
   const formatDate = (ts: number) => {

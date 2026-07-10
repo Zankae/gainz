@@ -1,13 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db, chartRowsForExercise, type Exercise } from '../gainz-db';
 import CandlestickChart from './CandlestickChart';
+import { type Period } from '../gainz-candles';
 
 type ProgressTab = 'strength' | 'volume';
+
+const VOL_PERIODS: { key: Period; label: string }[] = [
+  { key: 'Day', label: '1D' }, { key: 'Week', label: '1W' }, { key: 'Month', label: '1M' }, { key: 'Year', label: '1Y' },
+];
 
 export default function ProgressScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedExId, setSelectedExId] = useState<number | null>(null);
   const [tab, setTab] = useState<ProgressTab>('strength');
+  const [volPeriod, setVolPeriod] = useState<Period>('Week');
   const [volumeData, setVolumeData] = useState<{ label: string; volume: number }[]>([]);
   const [volumeLoading, setVolumeLoading] = useState(false);
 
@@ -21,25 +27,34 @@ export default function ProgressScreen() {
     });
   }, []);
 
-  // Load volume data when exercise changes
+  // Load volume data when exercise or period changes
   useEffect(() => {
     if (!selectedExId || tab !== 'volume') return;
     setVolumeLoading(true);
     (async () => {
       const rows = await chartRowsForExercise(selectedExId);
-      const byMonth = new Map<string, number>();
+      const buckets = new Map<string, { volume: number; at: number }>();
       for (const r of rows) {
         const d = new Date(r.workoutStartedAt!);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        byMonth.set(key, (byMonth.get(key) || 0) + r.weightKg * r.reps);
+        let key: string;
+        if (volPeriod === 'Day') key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        else if (volPeriod === 'Week') {
+          const start = new Date(d);
+          start.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+          key = `${start.getFullYear()}-W${Math.ceil((start.getDate() + 6) / 7)}`;
+        }
+        else if (volPeriod === 'Year') key = `${d.getFullYear()}`;
+        else key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const existing = buckets.get(key);
+        buckets.set(key, { volume: (existing?.volume || 0) + r.weightKg * r.reps, at: r.workoutStartedAt! });
       }
-      const data = Array.from(byMonth.entries())
-        .sort()
-        .map(([label, volume]) => ({ label, volume }));
+      const data = Array.from(buckets.entries())
+        .sort((a, b) => a[1].at - b[1].at)
+        .map(([label, v]) => ({ label, volume: v.volume }));
       setVolumeData(data);
       setVolumeLoading(false);
     })();
-  }, [selectedExId, tab]);
+  }, [selectedExId, tab, volPeriod]);
 
   const selectedExercise = useMemo(
     () => exercises.find(e => e.id === selectedExId),
@@ -107,7 +122,18 @@ export default function ProgressScreen() {
       )}
 
       {tab === 'volume' && (
-        <VolumeBarChart data={volumeData} loading={volumeLoading} />
+        <>
+          <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', padding: 2, marginBottom: 12 }}>
+            {VOL_PERIODS.map(p => (
+              <button key={p.key} onClick={() => setVolPeriod(p.key)} style={{
+                flex: 1, padding: '6px 0', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 600,
+                background: volPeriod === p.key ? 'var(--accent)' : 'transparent',
+                color: volPeriod === p.key ? 'var(--on-accent)' : 'var(--muted)',
+              }}>{p.label}</button>
+            ))}
+          </div>
+          <VolumeBarChart data={volumeData} loading={volumeLoading} />
+        </>
       )}
     </div>
   );

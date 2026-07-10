@@ -99,19 +99,20 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
     const maxCount = Math.max(...monthWorkouts.map(m => m.count), 1);
     const days = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
     return (
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: maxH, marginTop: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: maxH, flex: 1, maxWidth: 200, marginLeft: 8 }}>
         {Array.from({ length: days }, (_, i) => {
           const day = i + 1;
           const entry = monthWorkouts.find(m => m.day === day);
-          const h = entry ? (entry.count / maxCount) * maxH : 0;
+          const h = entry ? Math.max(2, (entry.count / maxCount) * maxH) : 1;
           const isToday = day === new Date().getDate();
           return (
             <div key={i} style={{
               flex: 1,
               height: Math.max(1, h),
-              background: h > 0 ? 'var(--accent)' : isToday ? 'var(--accent-dim)' : 'var(--surface-2)',
-              borderRadius: '1px 1px 0 0',
-              opacity: h > 0 ? 1 : 0.3,
+              background: h > 1 ? 'var(--accent)' : isToday ? 'var(--accent-dim)' : 'var(--surface-2)',
+              borderRadius: '2px 2px 0 0',
+              opacity: h > 1 ? 1 : 0.4,
+              minWidth: 1,
             }} />
           );
         })}
@@ -121,13 +122,18 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
 
   const handleLoadTemplate = async (template: Template) => {
     if (!template.exerciseIds.length) return;
-    const exercises = await db.exercises.bulkGet(template.exerciseIds);
-    const draft = {
-      exercises: exercises.filter(Boolean).map(ex => ({
-        exerciseId: ex!.id!,
-        sets: [{ weightKg: 0, reps: 0 }],
-      })),
-    };
+    // Try to load draft with weights/reps, fall back to empty sets
+    let draftExercises: { exerciseId: number; sets: { weightKg: number; reps: number }[] }[];
+    try {
+      const parsed = JSON.parse(template.draftJson || '{}');
+      draftExercises = parsed.exercises || [];
+    } catch {
+      draftExercises = template.exerciseIds.map(id => ({ exerciseId: id, sets: [{ weightKg: 0, reps: 0 }] }));
+    }
+    if (!draftExercises.length) {
+      draftExercises = template.exerciseIds.map(id => ({ exerciseId: id, sets: [{ weightKg: 0, reps: 0 }] }));
+    }
+    const draft = { exercises: draftExercises };
     await saveDraftWorkout(draft);
     await db.templates.update(template.id!, { lastUsedAt: Date.now() });
     setLoadedTemplate(template);
@@ -158,7 +164,7 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, letterSpacing: '.02em', marginBottom: 4 }}>
-          GAINZ
+          GAIN<span style={{ color: 'var(--accent)' }}>Z</span>
         </h1>
         {recentWorkout && (
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>

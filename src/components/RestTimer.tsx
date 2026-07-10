@@ -21,7 +21,7 @@ export default function RestTimer() {
         clearTimer();
         setRunning(false);
         if (navigator.vibrate) {
-          navigator.vibrate([200, 100, 200]);
+          navigator.vibrate([200, 100, 200, 100, 200]);
         }
         return 0;
       }
@@ -77,86 +77,52 @@ export default function RestTimer() {
         top: 0,
         zIndex: 10,
         background: 'var(--bg)',
-        padding: '12px 16px 14px',
+        padding: '14px 16px 16px',
         borderBottom: '1px solid var(--border)',
       }}
     >
-      <div style={{ fontSize: 13, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6, textAlign: 'center' }}>
+      <div style={{ fontSize: 15, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 8, textAlign: 'center' }}>
         ⏱ REST TIMER
       </div>
       <div
         style={{
           fontFamily: 'var(--font-display)',
           fontVariantNumeric: 'tabular-nums',
-          fontSize: 40,
+          fontSize: 48,
           fontWeight: 700,
           textAlign: 'center',
           color: remaining === 0 ? 'var(--gain)' : running ? 'var(--accent)' : 'var(--text)',
-          marginBottom: 10,
+          marginBottom: 12,
         }}
       >
         {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
       </div>
 
-      {/* Controls — 20% larger */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 8 }}>
-        <button
-          onClick={startPause}
-          style={{
-            padding: '10px 24px',
-            borderRadius: 'var(--radius-sm)',
-            background: running ? 'var(--loss-dim)' : 'var(--gain-dim)',
-            color: running ? 'var(--loss)' : 'var(--gain)',
-            fontWeight: 600,
-            fontSize: 15,
-          }}
-        >
-          {running ? 'Pause' : remaining <= 0 ? 'Restart' : 'Start'}
-        </button>
-        <button
-          onClick={reset}
-          style={{
-            padding: '10px 20px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--surface-2)',
-            color: 'var(--text)',
-            fontSize: 15,
-          }}
-        >
-          Reset
-        </button>
-        <button
-          onClick={addTime}
-          style={{
-            padding: '10px 16px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--surface-2)',
-            color: 'var(--accent)',
-            fontSize: 15,
-            fontWeight: 600,
-          }}
-        >
-          +15s
-        </button>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 10 }}>
+        <button onClick={startPause} style={{
+          padding: '12px 28px', borderRadius: 'var(--radius-sm)',
+          background: running ? 'var(--loss-dim)' : 'var(--gain-dim)',
+          color: running ? 'var(--loss)' : 'var(--gain)',
+          fontWeight: 600, fontSize: 16,
+        }}>{running ? 'Pause' : remaining <= 0 ? 'Restart' : 'Start'}</button>
+        <button onClick={reset} style={{
+          padding: '12px 24px', borderRadius: 'var(--radius-sm)',
+          background: 'var(--surface-2)', color: 'var(--text)', fontSize: 16,
+        }}>Reset</button>
+        <button onClick={addTime} style={{
+          padding: '12px 20px', borderRadius: 'var(--radius-sm)',
+          background: 'var(--surface-2)', color: 'var(--accent)', fontSize: 16, fontWeight: 600,
+        }}>+15s</button>
       </div>
 
-      {/* Presets — 20% larger */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
         {PRESETS.map((s) => (
-          <button
-            key={s}
-            onClick={() => setPreset(s)}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-sm)',
-              background: seconds === s && !running ? 'var(--accent-dim)' : 'var(--surface-2)',
-              color: seconds === s && !running ? 'var(--accent)' : 'var(--muted)',
-              fontSize: 13,
-              fontWeight: 500,
-            }}
-          >
-            {s >= 120 ? `${Math.floor(s / 60)}m` : `${s}s`}
-          </button>
+          <button key={s} onClick={() => setPreset(s)} style={{
+            padding: '8px 16px', borderRadius: 'var(--radius-sm)',
+            background: seconds === s && !running ? 'var(--accent-dim)' : 'var(--surface-2)',
+            color: seconds === s && !running ? 'var(--accent)' : 'var(--muted)',
+            fontSize: 14, fontWeight: 500,
+          }}>{s >= 120 ? `${Math.floor(s / 60)}m` : `${s}s`}</button>
         ))}
       </div>
     </div>

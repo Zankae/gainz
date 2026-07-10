@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ThemeProvider } from './theme';
 import WorkoutScreen from './components/WorkoutScreen';
 import HomeScreen from './components/HomeScreen';
@@ -72,6 +72,10 @@ function NavIcon({ name, active }: { name: string; active: boolean }) {
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('home');
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab]);
 
   return (
     <ThemeProvider>

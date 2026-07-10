@@ -136,7 +136,7 @@ export default function WorkoutScreen() {
         exerciseId: exercise.id!,
         order: exercises.length,
       });
-      await db.sets.add({
+      const setId = await db.sets.add({
         workoutExerciseId: weId,
         workoutId: workout.id!,
         exerciseId: exercise.id!,
@@ -145,6 +145,7 @@ export default function WorkoutScreen() {
         weightKg: 0,
         reps: 0,
       });
+      newEx.sets[0].id = setId;
     }
 
     const newExs = [...exercises, newEx];
@@ -263,11 +264,33 @@ export default function WorkoutScreen() {
   // --- Finish workout ---
   const handleFinish = async () => {
     if (!workout) return;
+    // Check if there are any real sets
+    const allSets = await db.sets.where('workoutId').equals(workout.id!).toArray();
+    const hasRealSets = allSets.some(s => s.reps > 0);
+
+    if (!hasRealSets) {
+      setConfirm({
+        title: 'End Workout',
+        message: 'No exercises added & nothing to log. End this workout?',
+        destructive: true,
+        onConfirm: async () => {
+          // Delete all rows for this workout
+          await db.sets.where('workoutId').equals(workout.id!).delete();
+          await db.workoutExercises.where('workoutId').equals(workout.id!).delete();
+          await db.workouts.delete(workout.id!);
+          setWorkout(null);
+          setExercises([]);
+          setConfirm(null);
+        },
+      });
+      return;
+    }
+
     try {
       await finishWorkout(workout.id!);
       const endedAt = Date.now();
-      const allSets = exercises.reduce((sum, e) => sum + e.sets.filter(s => s.reps > 0).length, 0);
-      setSummaryData({ startedAt: workout.startedAt, endedAt, setCount: allSets });
+      const completedSets = allSets.filter(s => s.reps > 0).length;
+      setSummaryData({ startedAt: workout.startedAt, endedAt, setCount: completedSets });
       setShowSummary(true);
       setWorkout(null);
     } catch (err) {
@@ -339,14 +362,6 @@ export default function WorkoutScreen() {
         )}
       </div>
 
-      {/* Staged workout hint */}
-      {!workout && exercises.length > 0 && (
-        <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--muted)', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
-          Exercises are staged. The clock starts when you press Start.
-        </div>
-      )}
-
-      {/* Rest Timer */}
       <RestTimer />
 
       {/* Exercises */}

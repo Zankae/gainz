@@ -142,6 +142,9 @@ export default function ProfileScreen() {
               fontSize: 14,
               fontWeight: 600,
               height: 30,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             LOG
@@ -246,6 +249,49 @@ export default function ProfileScreen() {
         <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileChange} />
         <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, lineHeight: 1.5 }}>
           Export saves all your data as a JSON file. Restore replaces everything — make sure to export a safety copy first.
+        </div>
+      </div>
+
+      {/* Reset App */}
+      <div style={{
+        background: 'var(--surface)',
+        borderRadius: 'var(--radius)',
+        padding: 16,
+        marginBottom: 12,
+      }}>
+        <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+          Danger Zone
+        </div>
+        <button
+          onClick={() => setConfirm({
+            title: 'Reset App',
+            message: 'This will permanently delete ALL your data — workouts, bodyweight entries, templates, everything. This cannot be undone.',
+            destructive: true,
+            onConfirm: async () => {
+              await db.delete();
+              await db.open();
+              // Re-seed exercises
+              const { seedIfEmpty } = await import('../gainz-db');
+              await seedIfEmpty();
+              setConfirm(null);
+              setToast('App reset complete');
+              await loadData();
+            },
+          })}
+          style={{
+            width: '100%',
+            padding: '12px 0',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--loss-dim)',
+            color: 'var(--loss)',
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          Reset App
+        </button>
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
+          Deletes all data and restores the default exercise library.
         </div>
       </div>
 

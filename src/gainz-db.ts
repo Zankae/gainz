@@ -87,7 +87,9 @@ export interface Template {
   id?: number;
   name: string;
   exerciseIds: number[];
-  lastUsedAt: number | null; // not indexed, so null is safe here
+  /** JSON-serialized DraftWorkout — stores weights and reps per exercise */
+  draftJson: string;
+  lastUsedAt: number | null;
 }
 
 export interface DraftSet {

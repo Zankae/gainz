@@ -80,11 +80,18 @@ html[data-theme="light"] {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;   /* kill the blue flash on tap */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-html, body, #root { min-height: 100%; }
-html { background: var(--bg); }               /* prevents a dark flash behind overscroll */
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+html, body, #root { min-height: 100dvh; }
+html { background: var(--bg); }
 
 body {
   background: var(--bg);
@@ -92,9 +99,10 @@ body {
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.4;
-  max-width: 480px;      /* the app is a phone app even on a desktop browser */
+  max-width: 480px;
   margin: 0 auto;
-  overscroll-behavior: none;   /* no pull-to-refresh inside an installed PWA */
+  overscroll-behavior: none;
+  overflow-x: hidden;
 }
 
 button {
