@@ -62,23 +62,23 @@ export default function StepperInput({
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
       {label && (
-        <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', minWidth: 40 }}>
+        <span style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', minWidth: 30 }}>
           {label}
         </span>
       )}
       <button
         onClick={() => adjust(-step)}
         style={{
-          width: 36,
-          height: 36,
+          width: 30,
+          height: 30,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           borderRadius: 'var(--radius-sm)',
           background: 'var(--surface-2)',
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: 700,
           color: 'var(--text)',
           flexShrink: 0,
@@ -106,12 +106,12 @@ export default function StepperInput({
           }
         }}
         style={{
-          width: 80,
-          height: 36,
+          width: 64,
+          height: 30,
           textAlign: 'center',
           fontFamily: 'var(--font-display)',
           fontVariantNumeric: 'tabular-nums',
-          fontSize: 16,
+          fontSize: 14,
           fontWeight: 600,
           border: 'none',
           borderRadius: 'var(--radius-sm)',
@@ -123,8 +123,8 @@ export default function StepperInput({
       <button
         onClick={() => adjust(step)}
         style={{
-          width: 36,
-          height: 36,
+          width: 30,
+          height: 30,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

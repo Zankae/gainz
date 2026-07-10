@@ -20,7 +20,6 @@ export default function RestTimer() {
       if (prev <= 1) {
         clearTimer();
         setRunning(false);
-        // Vibrate if supported
         if (navigator.vibrate) {
           navigator.vibrate([200, 100, 200]);
         }
@@ -78,38 +77,38 @@ export default function RestTimer() {
         top: 0,
         zIndex: 10,
         background: 'var(--bg)',
-        padding: '8px 16px 12px',
+        padding: '12px 16px 14px',
         borderBottom: '1px solid var(--border)',
       }}
     >
-      <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 4, textAlign: 'center' }}>
+      <div style={{ fontSize: 13, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6, textAlign: 'center' }}>
         ⏱ REST TIMER
       </div>
       <div
         style={{
           fontFamily: 'var(--font-display)',
           fontVariantNumeric: 'tabular-nums',
-          fontSize: 36,
+          fontSize: 40,
           fontWeight: 700,
           textAlign: 'center',
           color: remaining === 0 ? 'var(--gain)' : running ? 'var(--accent)' : 'var(--text)',
-          marginBottom: 8,
+          marginBottom: 10,
         }}
       >
         {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
       </div>
 
-      {/* Controls */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 6 }}>
+      {/* Controls — 20% larger */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 8 }}>
         <button
           onClick={startPause}
           style={{
-            padding: '8px 20px',
+            padding: '10px 24px',
             borderRadius: 'var(--radius-sm)',
             background: running ? 'var(--loss-dim)' : 'var(--gain-dim)',
             color: running ? 'var(--loss)' : 'var(--gain)',
             fontWeight: 600,
-            fontSize: 14,
+            fontSize: 15,
           }}
         >
           {running ? 'Pause' : remaining <= 0 ? 'Restart' : 'Start'}
@@ -117,11 +116,11 @@ export default function RestTimer() {
         <button
           onClick={reset}
           style={{
-            padding: '8px 16px',
+            padding: '10px 20px',
             borderRadius: 'var(--radius-sm)',
             background: 'var(--surface-2)',
             color: 'var(--text)',
-            fontSize: 14,
+            fontSize: 15,
           }}
         >
           Reset
@@ -129,11 +128,11 @@ export default function RestTimer() {
         <button
           onClick={addTime}
           style={{
-            padding: '8px 12px',
+            padding: '10px 16px',
             borderRadius: 'var(--radius-sm)',
             background: 'var(--surface-2)',
             color: 'var(--accent)',
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: 600,
           }}
         >
@@ -141,18 +140,18 @@ export default function RestTimer() {
         </button>
       </div>
 
-      {/* Presets */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
+      {/* Presets — 20% larger */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
         {PRESETS.map((s) => (
           <button
             key={s}
             onClick={() => setPreset(s)}
             style={{
-              padding: '4px 10px',
+              padding: '6px 14px',
               borderRadius: 'var(--radius-sm)',
               background: seconds === s && !running ? 'var(--accent-dim)' : 'var(--surface-2)',
               color: seconds === s && !running ? 'var(--accent)' : 'var(--muted)',
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: 500,
             }}
           >

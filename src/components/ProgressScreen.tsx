@@ -1,26 +1,45 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, type Exercise, type BodyweightEntry } from '../gainz-db';
+import { db, chartRowsForExercise, type Exercise } from '../gainz-db';
 import CandlestickChart from './CandlestickChart';
-import { useTheme } from '../theme';
 
-type ProgressTab = 'strength' | 'bodyweight' | 'volume';
+type ProgressTab = 'strength' | 'volume';
 
 export default function ProgressScreen() {
-  const { theme } = useTheme();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedExId, setSelectedExId] = useState<number | null>(null);
   const [tab, setTab] = useState<ProgressTab>('strength');
-  const [bodyweightData, setBodyweightData] = useState<BodyweightEntry[]>([]);
+  const [volumeData, setVolumeData] = useState<{ label: string; volume: number }[]>([]);
+  const [volumeLoading, setVolumeLoading] = useState(false);
 
   useEffect(() => {
     db.exercises.toArray().then(all => {
-      setExercises(all.filter(e => !e.hidden && !e.archived).sort((a, b) => a.name.localeCompare(b.name)));
-      if (all.length > 0 && !selectedExId && all[0]?.id) {
-        setSelectedExId(all[0].id);
+      const filtered = all.filter(e => !e.hidden && !e.archived).sort((a, b) => a.name.localeCompare(b.name));
+      setExercises(filtered);
+      if (filtered.length > 0 && !selectedExId && filtered[0]?.id) {
+        setSelectedExId(filtered[0].id);
       }
     });
-    db.bodyweight.orderBy('at').toArray().then(setBodyweightData);
   }, []);
+
+  // Load volume data when exercise changes
+  useEffect(() => {
+    if (!selectedExId || tab !== 'volume') return;
+    setVolumeLoading(true);
+    (async () => {
+      const rows = await chartRowsForExercise(selectedExId);
+      const byMonth = new Map<string, number>();
+      for (const r of rows) {
+        const d = new Date(r.workoutStartedAt!);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        byMonth.set(key, (byMonth.get(key) || 0) + r.weightKg * r.reps);
+      }
+      const data = Array.from(byMonth.entries())
+        .sort()
+        .map(([label, volume]) => ({ label, volume }));
+      setVolumeData(data);
+      setVolumeLoading(false);
+    })();
+  }, [selectedExId, tab]);
 
   const selectedExercise = useMemo(
     () => exercises.find(e => e.id === selectedExId),
@@ -31,81 +50,92 @@ export default function ProgressScreen() {
     <div style={{ padding: '12px 16px', paddingBottom: 80 }}>
       <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 16 }}>Progress</h2>
 
-      {/* Tab switcher */}
-      <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', padding: 2, marginBottom: 16 }}>
-        {([
-          { key: 'strength' as const, label: 'Strength' },
-          { key: 'bodyweight' as const, label: 'Bodyweight' },
-          { key: 'volume' as const, label: 'Volume' },
-        ]).map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            style={{
-              flex: 1,
-              padding: '8px 0',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: 13,
-              fontWeight: 600,
-              background: tab === t.key ? 'var(--accent)' : 'transparent',
-              color: tab === t.key ? 'var(--on-accent)' : 'var(--muted)',
-            }}
-          >
-            {t.label}
-          </button>
+      {/* Exercise selector — above tabs, shared between both */}
+      <select
+        value={selectedExId ?? ''}
+        onChange={e => setSelectedExId(Number(e.target.value))}
+        style={{
+          width: '100%',
+          padding: '10px 12px',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)',
+          background: 'var(--surface)',
+          color: 'var(--text)',
+          fontSize: 14,
+          marginBottom: 8,
+        }}
+      >
+        {exercises.map(ex => (
+          <option key={ex.id} value={ex.id}>{ex.name}</option>
         ))}
+      </select>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', padding: 2, marginBottom: 12 }}>
+        <button
+          onClick={() => setTab('strength')}
+          style={{
+            flex: 1,
+            padding: '8px 0',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: 13,
+            fontWeight: 600,
+            background: tab === 'strength' ? 'var(--accent)' : 'transparent',
+            color: tab === 'strength' ? 'var(--on-accent)' : 'var(--muted)',
+          }}
+        >
+          Strength
+        </button>
+        <button
+          onClick={() => setTab('volume')}
+          style={{
+            flex: 1,
+            padding: '8px 0',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: 13,
+            fontWeight: 600,
+            background: tab === 'volume' ? 'var(--accent)' : 'transparent',
+            color: tab === 'volume' ? 'var(--on-accent)' : 'var(--muted)',
+          }}
+        >
+          Volume
+        </button>
       </div>
 
-      {/* Strength tab — exercise selector + candlestick chart */}
-      {tab === 'strength' && (
-        <>
-          <select
-            value={selectedExId ?? ''}
-            onChange={e => setSelectedExId(Number(e.target.value))}
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border)',
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              fontSize: 14,
-              marginBottom: 12,
-            }}
-          >
-            {exercises.map(ex => (
-              <option key={ex.id} value={ex.id}>{ex.name}</option>
-            ))}
-          </select>
-          {selectedExercise && <CandlestickChart exercise={selectedExercise} />}
-        </>
+      {tab === 'strength' && selectedExercise && (
+        <CandlestickChart exercise={selectedExercise} />
       )}
 
-      {/* Bodyweight tab — simple SVG line chart */}
-      {tab === 'bodyweight' && (
-        <BodyweightLineChart data={bodyweightData} theme={theme} />
-      )}
-
-      {/* Volume tab */}
       {tab === 'volume' && (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
-          Volume chart — select an exercise in the Strength tab first
-        </div>
+        <VolumeBarChart data={volumeData} loading={volumeLoading} />
       )}
     </div>
   );
 }
 
-/* ---- Simple SVG line chart for bodyweight ---- */
+/* ---- Volume bar chart ---- */
 
-function BodyweightLineChart({ data, theme }: { data: BodyweightEntry[]; theme: string }) {
+function VolumeBarChart({ data, loading }: { data: { label: string; volume: number }[]; loading: boolean }) {
+  if (loading) {
+    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading…</div>;
+  }
+  if (data.length === 0) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+        No data yet. Complete workouts to see volume trends.
+      </div>
+    );
+  }
+
   const W = 320;
   const H = 200;
-  const PAD = { top: 20, right: 20, bottom: 30, left: 40 };
+  const PAD = { top: 20, right: 20, bottom: 30, left: 50 };
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
+  const maxV = Math.max(...data.map(d => d.volume));
 
-  const colors = useMemo(() => {
+  // Read CSS tokens
+  const colors = (() => {
     if (typeof document === 'undefined') return { accent: '#5BB8F5', grid: '#232B36', muted: '#8A94A3' };
     const cs = getComputedStyle(document.documentElement);
     return {
@@ -113,76 +143,61 @@ function BodyweightLineChart({ data, theme }: { data: BodyweightEntry[]; theme: 
       grid: cs.getPropertyValue('--grid').trim() || '#232B36',
       muted: cs.getPropertyValue('--muted').trim() || '#8A94A3',
     };
-  }, [theme]);
+  })();
 
-  if (data.length < 2) {
-    return (
-      <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
-        Log at least 2 bodyweight entries to see a chart.
-      </div>
-    );
-  }
-
-  const vals = data.map(d => d.kg);
-  const min = Math.min(...vals) - 1;
-  const max = Math.max(...vals) + 1;
-  const range = max - min;
-
-  const x = (i: number) => PAD.left + (i / (data.length - 1)) * plotW;
-  const y = (v: number) => PAD.top + plotH - ((v - min) / range) * plotH;
-
-  // Build path
-  const pathD = data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(d.kg)}`).join(' ');
-
-  // Gridlines
-  const gridLines = 4;
-  const step = range / gridLines;
+  const barW = Math.max(4, (plotW / data.length) * 0.7);
+  const gap = plotW / data.length;
 
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: 8 }}>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }}>
         {/* Gridlines */}
-        {Array.from({ length: gridLines + 1 }, (_, i) => {
-          const v = min + i * step;
-          const gy = y(v);
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+          const y = PAD.top + plotH - ratio * plotH;
+          const val = maxV * ratio;
           return (
             <g key={i}>
-              <line x1={PAD.left} x2={W - PAD.right} y1={gy} y2={gy} stroke={colors.grid} strokeWidth="0.5" />
-              <text x={PAD.left - 4} y={gy + 4} textAnchor="end" fill={colors.muted} fontSize="9">
-                {v.toFixed(1)}
+              <line x1={PAD.left} x2={W - PAD.right} y1={y} y2={y} stroke={colors.grid} strokeWidth="0.5" />
+              <text x={PAD.left - 6} y={y + 4} textAnchor="end" fill={colors.muted} fontSize="9">
+                {Math.round(val)}
               </text>
             </g>
           );
         })}
 
-        {/* X axis labels */}
-        {data.length <= 10
+        {/* Bars */}
+        {data.map((d, i) => {
+          const barH = maxV > 0 ? (d.volume / maxV) * plotH : 0;
+          return (
+            <rect
+              key={d.label}
+              x={PAD.left + i * gap + (gap - barW) / 2}
+              y={PAD.top + plotH - barH}
+              width={barW}
+              height={Math.max(1, barH)}
+              fill={colors.accent}
+              rx={2}
+              opacity={0.8}
+            />
+          );
+        })}
+
+        {/* X labels */}
+        {data.length <= 12
           ? data.map((d, i) => (
-              <text key={i} x={x(i)} y={H - 6} textAnchor="middle" fill={colors.muted} fontSize="8">
-                {new Date(d.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              <text key={i} x={PAD.left + i * gap + gap / 2} y={H - 6} textAnchor="middle" fill={colors.muted} fontSize="8">
+                {d.label}
               </text>
             ))
-          : [0, Math.floor(data.length / 2), data.length - 1].map(i => (
-              <text key={i} x={x(i)} y={H - 6} textAnchor="middle" fill={colors.muted} fontSize="8">
-                {new Date(data[i].at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-              </text>
-            ))
+          : data.filter((_, i) => i % Math.ceil(data.length / 6) === 0).map((d, i) => {
+              const idx = data.indexOf(d);
+              return (
+                <text key={i} x={PAD.left + idx * gap + gap / 2} y={H - 6} textAnchor="middle" fill={colors.muted} fontSize="8">
+                  {d.label}
+                </text>
+              );
+            })
         }
-
-        {/* Area fill */}
-        <path
-          d={`${pathD} L ${x(data.length - 1)} ${y(min)} L ${x(0)} ${y(min)} Z`}
-          fill={colors.accent}
-          opacity="0.1"
-        />
-
-        {/* Line */}
-        <path d={pathD} fill="none" stroke={colors.accent} strokeWidth="2" strokeLinejoin="round" />
-
-        {/* Dots */}
-        {data.map((d, i) => (
-          <circle key={i} cx={x(i)} cy={y(d.kg)} r="3" fill={colors.accent} />
-        ))}
       </svg>
     </div>
   );

@@ -121,13 +121,33 @@ export default function WorkoutScreen() {
   // --- Exercise operations ---
   const addExercise = async (exercise: Exercise) => {
     const last = await lastPerformance(exercise.id!);
-    const newExs = [...exercises, {
+    const newEx: LocalExercise = {
       exerciseId: exercise.id!,
       exercise,
       sets: [{ weightKg: 0, reps: 0 }],
       lastTime: last.length ? last : null,
       lastTimeLoading: false,
-    }];
+    };
+
+    if (workout && workout.endedAt === 0) {
+      // Active workout — persist to DB immediately
+      const weId = await db.workoutExercises.add({
+        workoutId: workout.id!,
+        exerciseId: exercise.id!,
+        order: exercises.length,
+      });
+      await db.sets.add({
+        workoutExerciseId: weId,
+        workoutId: workout.id!,
+        exerciseId: exercise.id!,
+        performedAt: Date.now(),
+        order: 0,
+        weightKg: 0,
+        reps: 0,
+      });
+    }
+
+    const newExs = [...exercises, newEx];
     setExercises(newExs);
     setShowPicker(false);
     await persistDraftIfNeeded(newExs);

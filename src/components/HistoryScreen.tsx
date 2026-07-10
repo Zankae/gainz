@@ -23,6 +23,9 @@ export default function HistoryScreen({ onNavigate }: { onNavigate?: (tab: 'home
     return { year: now.getFullYear(), month: now.getMonth() };
   });
   const [selectedDay, setSelectedDay] = useState<WorkoutSummary[] | null>(null);
+  // Template save prompt
+  const [templatePrompt, setTemplatePrompt] = useState<WorkoutSummary | null>(null);
+  const [templateName, setTemplateName] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -103,6 +106,12 @@ export default function HistoryScreen({ onNavigate }: { onNavigate?: (tab: 'home
     };
     await saveDraftWorkout(draft);
     onNavigate?.('workout');
+  };
+
+  const saveTemplate = async (name: string) => {
+    if (!templatePrompt) return;
+    const exerciseIds = templatePrompt.exercises.map(e => e.exercise.id!);
+    await db.templates.add({ name, exerciseIds, lastUsedAt: null });
   };
 
   const formatDate = (ts: number) => {
@@ -243,6 +252,21 @@ export default function HistoryScreen({ onNavigate }: { onNavigate?: (tab: 'home
                       }}
                     >
                       USE AS NEW WORKOUT
+                    </button>
+                    <button
+                      onClick={() => { setTemplatePrompt(ws); setTemplateName(''); }}
+                      style={{
+                        width: '100%',
+                        marginTop: 8,
+                        padding: '10px 0',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--surface-2)',
+                        color: 'var(--text)',
+                        fontSize: 14,
+                        fontWeight: 600,
+                      }}
+                    >
+                      SAVE TEMPLATE
                     </button>
                   </div>
                 )}
@@ -404,12 +428,70 @@ export default function HistoryScreen({ onNavigate }: { onNavigate?: (tab: 'home
                       >
                         USE AS NEW WORKOUT
                       </button>
+                      <button
+                        onClick={() => { setTemplatePrompt(ws); setTemplateName(''); }}
+                        style={{
+                          width: '100%',
+                          marginTop: 6,
+                          padding: '10px 0',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'var(--surface-2)',
+                          color: 'var(--text)',
+                          fontSize: 13,
+                          fontWeight: 600,
+                        }}
+                      >
+                        SAVE TEMPLATE
+                      </button>
                     </div>
                   ))
                 )}
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Template name prompt */}
+      {templatePrompt && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.5)' }}
+          onClick={() => setTemplatePrompt(null)}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: 20, maxWidth: 320, width: '100%' }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, marginBottom: 12 }}>Save Template</h3>
+            <input
+              type="text"
+              placeholder="Template name…"
+              value={templateName}
+              onChange={e => setTemplateName(e.target.value)}
+              autoFocus
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)', background: 'var(--surface-2)',
+                color: 'var(--text)', fontSize: 14, outline: 'none', marginBottom: 16,
+              }}
+              onKeyDown={async e => {
+                if (e.key === 'Enter' && templateName.trim()) {
+                  await saveTemplate(templateName.trim());
+                  setTemplatePrompt(null);
+                }
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setTemplatePrompt(null)} style={{
+                padding: '8px 16px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontWeight: 500,
+              }}>Cancel</button>
+              <button onClick={async () => {
+                if (!templateName.trim()) return;
+                await saveTemplate(templateName.trim());
+                setTemplatePrompt(null);
+              }} disabled={!templateName.trim()} style={{
+                padding: '8px 16px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 13, fontWeight: 600,
+              }}>Save</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
