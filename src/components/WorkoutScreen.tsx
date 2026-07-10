@@ -315,7 +315,10 @@ export default function WorkoutScreen() {
     const totalSec = Math.floor(ms / 1000);
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    const s = totalSec % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
   };
 
   const isRunning = !!workout && workout.endedAt === 0;

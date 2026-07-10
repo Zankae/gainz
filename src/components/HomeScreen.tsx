@@ -176,12 +176,15 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
       {/* Start / Continue / Load Template */}
       {activeWorkout ? (
         <button onClick={() => onNavigate?.('workout')} style={{
-          width: '100%', padding: '20px 0', borderRadius: 'var(--radius)',
+          width: '100%', padding: '16px 0', borderRadius: 'var(--radius)',
           background: 'var(--gain-dim)', color: 'var(--gain)',
-          fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700,
-          letterSpacing: '.02em', marginBottom: 16, border: '2px solid var(--gain)',
+          marginBottom: 16, border: '2px solid var(--gain)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
         }}>
-          CONTINUE WORKOUT ▶
+          <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em' }}>
+            WORKOUT ACTIVE
+          </span>
+          <WorkoutTimer startedAt={activeWorkout.startedAt} />
         </button>
       ) : loadedTemplate ? (
         <div style={{ marginBottom: 16 }}>
@@ -336,5 +339,22 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
         </div>
       )}
     </div>
+  );
+}
+
+function WorkoutTimer({ startedAt }: { startedAt: number }) {
+  const [elapsed, setElapsed] = useState(Date.now() - startedAt);
+  useEffect(() => {
+    const id = setInterval(() => setElapsed(Date.now() - startedAt), 1000);
+    return () => clearInterval(id);
+  }, [startedAt]);
+  const s = Math.floor(elapsed / 1000) % 60;
+  const m = Math.floor(elapsed / 60000) % 60;
+  const h = Math.floor(elapsed / 3600000);
+  return (
+    <span style={{ fontFamily: 'var(--font-display)', fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 700 }}>
+      {h > 0 ? `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s` :
+       m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`}
+    </span>
   );
 }

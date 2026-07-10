@@ -170,9 +170,14 @@ export default function CandlestickChart({ exercise }: CandlestickChartProps) {
         </svg>
       </div>
 
-      {/* Selected candle OHLC readout */}
+      {/* Selected candle OHLC readout — fixed overlay */}
       {selectedCandle && (
-        <div style={{ marginTop: 10, padding: '12px 16px', borderRadius: 'var(--radius)', background: 'var(--surface)' }}>
+        <div style={{
+          position: 'fixed', bottom: 72, left: '50%', transform: 'translateX(-50%)',
+          maxWidth: 440, width: 'calc(100% - 24px)', zIndex: 300,
+          padding: '12px 16px', borderRadius: 'var(--radius)', background: 'var(--surface)',
+          boxShadow: '0 -4px 20px var(--shadow)',
+        }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700 }}>{selectedCandle.full}</span>
             <button onClick={() => setSelectedCandle(null)} style={{ fontSize: 16, color: 'var(--muted)' }}>✕</button>
