@@ -163,10 +163,18 @@ export default function WorkoutScreen() {
       message: `Remove ${exercises[index].exercise.name} from this workout?`,
       destructive: true,
       onConfirm: async () => {
+        const removed = exercises[index];
         const newExs = exercises.filter((_, i) => i !== index);
         setExercises(newExs);
         setConfirm(null);
-        await persistDraftIfNeeded(newExs);
+
+        // If active workout, also delete from DB
+        if (workout && removed.weId) {
+          await db.sets.where('workoutExerciseId').equals(removed.weId).delete();
+          await db.workoutExercises.delete(removed.weId);
+        } else {
+          await persistDraftIfNeeded(newExs);
+        }
       },
     });
   };

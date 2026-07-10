@@ -27,6 +27,7 @@ export default function CandlestickChart({ exercise }: CandlestickChartProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setSelectedCandle(null);
     (async () => {
       if (!exercise.id) return;
       const rows = await chartRowsForExercise(exercise.id);
