@@ -9,6 +9,7 @@ import {
   type BodyweightEntry,
   type Exercise,
   type MuscleGroup,
+  type Equipment,
 } from '../gainz-db';
 
 const GROUPS: MuscleGroup[] = [
@@ -259,6 +260,50 @@ export default function ProfileScreen() {
         <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileChange} />
         <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, lineHeight: 1.5 }}>
           Export saves all your data as a JSON file. Restore replaces everything — make sure to export a safety copy first.
+        </div>
+      </div>
+
+      {/* Restore Factory Exercises */}
+      <div style={{
+        background: 'var(--surface)',
+        borderRadius: 'var(--radius)',
+        padding: 16,
+        marginBottom: 12,
+      }}>
+        <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+          Restore Factory Exercises
+        </div>
+        <button
+          onClick={async () => {
+            const seed = await import('../gainz-exercises.json');
+            const existing = await db.exercises.toArray();
+            const existingNames = new Set(existing.map(e => e.name.toLowerCase()));
+            const missing = (seed.exercises as Array<{ name: string; group: MuscleGroup; equipment: Equipment; perHand: boolean }>)
+              .filter((ex: { name: string }) => !existingNames.has(ex.name.toLowerCase()));
+            if (missing.length > 0) {
+              await db.exercises.bulkAdd(missing.map(ex => ({
+                ...ex,
+                custom: false, favorite: false, hidden: false, archived: false,
+              })));
+              showToast(`Restored ${missing.length} exercise${missing.length !== 1 ? 's' : ''}`);
+            } else {
+              showToast('All factory exercises already present');
+            }
+          }}
+          style={{
+            width: '100%',
+            padding: '12px 0',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--accent-dim)',
+            color: 'var(--accent)',
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          Restore Factory Exercises
+        </button>
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
+          Re-adds any factory exercises you've deleted. Keeps your custom exercises and all workout data intact.
         </div>
       </div>
 
