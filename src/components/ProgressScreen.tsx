@@ -62,7 +62,7 @@ export default function ProgressScreen() {
   );
 
   return (
-    <div style={{ padding: '12px 16px', paddingBottom: 80 }}>
+    <div style={{ padding: '12px 16px', paddingBottom: 80, overflow: 'hidden' }}>
       <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 16 }}>Progress</h2>
 
       {/* Exercise selector — custom dropdown with favorites */}

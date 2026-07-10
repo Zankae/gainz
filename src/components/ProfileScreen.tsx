@@ -3,7 +3,7 @@ import { useTheme } from '../theme';
 import type { Preference } from '../theme';
 import {
   db,
-  normalizeQuarterKg,
+  normalizeWeight,
   exportBackup,
   restoreBackup,
   type BodyweightEntry,
@@ -43,7 +43,7 @@ export default function ProfileScreen() {
 
   // --- Bodyweight ---
   const logBodyweight = async () => {
-    const kg = normalizeQuarterKg(bwValue);
+    const kg = normalizeWeight(bwValue);
     await db.bodyweight.add({ at: Date.now(), kg });
     showToast(`Bodyweight logged: ${kg.toFixed(2)} kg`);
     await loadData(); // Refresh immediately for live chart update

@@ -203,7 +203,7 @@ export default function ExercisePicker({ open, onClose, onSelect, selectedIds }:
                   <button onClick={(e) => toggleFavorite(e, exercise)} style={{
                     padding: '10px 10px', fontSize: 20,
                     color: exercise.favorite ? 'var(--accent)' : 'var(--muted)',
-                    marginRight: 8,
+                    marginRight: 16,
                   }}>
                     {exercise.favorite ? '♥' : '♡'}
                   </button>

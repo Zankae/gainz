@@ -83,7 +83,7 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
         }
       }
       pbs.sort((a, b) => b.weight - a.weight);
-      setRecentPBs(pbs.slice(0, 3));
+      setRecentPBs(pbs.slice(0, 100));
 
       // Templates
       setTemplates(await db.templates.toArray());
