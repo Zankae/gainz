@@ -423,6 +423,7 @@ function ExerciseManager() {
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState<MuscleGroup | ''>('');
   const [deleteConfirm, setDeleteConfirm] = useState<Exercise | null>(null);
+  const [deleteHistory, setDeleteHistory] = useState(false);
 
   useEffect(() => {
     db.exercises.toArray().then(all => setExercises(all.sort((a, b) => a.name.localeCompare(b.name))));
@@ -437,14 +438,29 @@ function ExerciseManager() {
     refresh();
   };
 
-  const handleDelete = async (ex: Exercise) => {
-    const setCount = await db.sets.where('exerciseId').equals(ex.id!).count();
-    if (setCount > 0) {
-      await db.exercises.update(ex.id!, { archived: true, hidden: true });
-    } else {
+  const handleDelete = async (ex: Exercise, wipeHistory: boolean) => {
+    if (wipeHistory) {
+      // Delete all historical sets and workout references for this exercise
+      const setIds = await db.sets.where('exerciseId').equals(ex.id!).toArray();
+      for (const s of setIds) {
+        if (s.id) await db.sets.delete(s.id);
+      }
+      // Also delete workoutExercise rows
+      const weRows = await db.workoutExercises.where('exerciseId').equals(ex.id!).toArray();
+      for (const we of weRows) {
+        if (we.id) await db.workoutExercises.delete(we.id);
+      }
       await db.exercises.delete(ex.id!);
+    } else {
+      const setCount = await db.sets.where('exerciseId').equals(ex.id!).count();
+      if (setCount > 0) {
+        await db.exercises.update(ex.id!, { archived: true, hidden: true });
+      } else {
+        await db.exercises.delete(ex.id!);
+      }
     }
     setDeleteConfirm(null);
+    setDeleteHistory(false);
     refresh();
   };
 
@@ -499,15 +515,32 @@ function ExerciseManager() {
         ))}
       </div>
       {deleteConfirm && (
-        <ConfirmDialog
-          open={true}
-          title="Remove Exercise"
-          message={`Remove "${deleteConfirm.name}"? Historical data will be preserved.`}
-          confirmLabel="Remove"
-          destructive={true}
-          onConfirm={() => handleDelete(deleteConfirm)}
-          onCancel={() => setDeleteConfirm(null)}
-        />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,.5)' }}
+          onClick={() => { setDeleteConfirm(null); setDeleteHistory(false); }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '20px 20px 16px',
+            maxWidth: 360, width: '100%', boxShadow: '0 8px 32px var(--shadow)',
+          }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, marginBottom: 8 }}>Remove Exercise</h3>
+            <div style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 12, lineHeight: 1.5 }}>
+              Remove "{deleteConfirm.name}"?
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', marginBottom: 16, cursor: 'pointer' }}>
+              <input type="checkbox" checked={deleteHistory} onChange={e => setDeleteHistory(e.target.checked)} />
+              Also delete all historical data for this exercise
+            </label>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setDeleteConfirm(null); setDeleteHistory(false); }} style={{
+                padding: '10px 18px', borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 500,
+                background: 'var(--surface-2)', color: 'var(--text)',
+              }}>Cancel</button>
+              <button onClick={() => handleDelete(deleteConfirm, deleteHistory)} style={{
+                padding: '10px 18px', borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 600,
+                background: 'var(--loss)', color: '#fff',
+              }}>Remove</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
