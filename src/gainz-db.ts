@@ -153,6 +153,17 @@ export function normalizeQuarterKg(value: number | string): number {
   return Math.round((parsed + Number.EPSILON) * 4) / 4;
 }
 
+/** Validate weight without rounding — for direct keyboard input. */
+export function normalizeWeight(value: number | string): number {
+  const parsed = typeof value === 'number'
+    ? value
+    : Number(value.toString().trim().replace(',', '.'));
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error('Weight must be a finite, non-negative number');
+  }
+  return parsed;
+}
+
 export function normalizeReps(value: number | string): number {
   const parsed = typeof value === 'number' ? value : Number(value.trim());
   if (!Number.isFinite(parsed) || parsed < 0) {
@@ -183,7 +194,7 @@ export async function saveDraftWorkout(
     exercises: draft.exercises.map(exercise => ({
       exerciseId: exercise.exerciseId,
       sets: (exercise.sets.length ? exercise.sets : [{ weightKg: 0, reps: 0 }]).map(set => ({
-        weightKg: normalizeQuarterKg(set.weightKg),
+        weightKg: normalizeWeight(set.weightKg),
         reps: normalizeReps(set.reps),
       })),
     })),
@@ -240,7 +251,7 @@ export async function startWorkout(draftOverride?: DraftWorkout): Promise<number
             exerciseId: draftExercise.exerciseId,
             performedAt: startedAt + sequence++,
             order: setOrder,
-            weightKg: normalizeQuarterKg(set.weightKg),
+            weightKg: normalizeWeight(set.weightKg),
             reps: normalizeReps(set.reps),
           })));
         }

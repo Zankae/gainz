@@ -91,7 +91,10 @@ input, textarea {
 }
 
 html, body, #root { min-height: 100dvh; }
-html { background: var(--bg); }
+html {
+  background: var(--bg);
+  overscroll-behavior: none;
+}
 
 body {
   background: var(--bg);

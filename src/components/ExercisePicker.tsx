@@ -29,6 +29,7 @@ export default function ExercisePicker({ open, onClose, onSelect, selectedIds }:
   const [newGroup, setNewGroup] = useState<MuscleGroup>('Chest');
   const [newEquip, setNewEquip] = useState<Equipment>('barbell');
   const [newPerHand, setNewPerHand] = useState(false);
+  const [newFavorite, setNewFavorite] = useState(false);
 
   const loadExercises = () => {
     db.exercises.toArray().then((all) => {
@@ -59,7 +60,7 @@ export default function ExercisePicker({ open, onClose, onSelect, selectedIds }:
       equipment: newEquip,
       perHand: newPerHand,
       custom: true,
-      favorite: false,
+      favorite: newFavorite,
       hidden: false,
       archived: false,
     });
@@ -95,7 +96,7 @@ export default function ExercisePicker({ open, onClose, onSelect, selectedIds }:
       <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border)' }}>
         <button onClick={onClose} style={{ fontSize: 24, lineHeight: 1, padding: 4 }}>✕</button>
         <input type="search" placeholder="Search exercises…" value={search}
-          onChange={(e) => setSearch(e.target.value)} autoFocus style={{
+          onChange={(e) => setSearch(e.target.value)} style={{
             flex: 1, height: 40, padding: '0 12px', borderRadius: 'var(--radius-sm)',
             border: 'none', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 15, outline: 'none',
           }} />
@@ -147,10 +148,19 @@ export default function ExercisePicker({ open, onClose, onSelect, selectedIds }:
               {EQUIPMENT.map(eq => <option key={eq} value={eq}>{eq}</option>)}
             </select>
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', marginBottom: 16 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', marginBottom: 8 }}>
             <input type="checkbox" checked={newPerHand} onChange={e => setNewPerHand(e.target.checked)} />
-            Per-hand weight (dumbbell)
+            Per-hand weight
           </label>
+          <button onClick={() => setNewFavorite(!newFavorite)} style={{
+            display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)',
+            marginBottom: 16, padding: 0,
+          }}>
+            <span style={{ fontSize: 20, color: newFavorite ? 'var(--accent)' : 'var(--muted)' }}>
+              {newFavorite ? '♥' : '♡'}
+            </span>
+            Favorite
+          </button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setShowCreate(false)} style={{
               flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)',
@@ -173,10 +183,11 @@ export default function ExercisePicker({ open, onClose, onSelect, selectedIds }:
                   display: 'flex', alignItems: 'center',
                   borderBottom: '1px solid var(--border)',
                 }}>
-                  <button onClick={() => onSelect(exercise)} style={{
+                  <button onClick={() => alreadySelected ? undefined : onSelect(exercise)} style={{
                     flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '12px 16px', textAlign: 'left',
-                    opacity: alreadySelected ? 0.4 : 1, color: 'var(--text)',
+                    opacity: alreadySelected ? 0.35 : 1, color: 'var(--text)',
+                    cursor: alreadySelected ? 'default' : 'pointer',
                   }}>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 500 }}>
@@ -190,8 +201,9 @@ export default function ExercisePicker({ open, onClose, onSelect, selectedIds }:
                   </button>
                   {/* Favorite heart */}
                   <button onClick={(e) => toggleFavorite(e, exercise)} style={{
-                    padding: '12px 14px', fontSize: 18,
+                    padding: '10px 12px', fontSize: 20,
                     color: exercise.favorite ? 'var(--accent)' : 'var(--muted)',
+                    marginLeft: -4,
                   }}>
                     {exercise.favorite ? '♥' : '♡'}
                   </button>

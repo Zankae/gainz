@@ -65,25 +65,8 @@ export default function ProgressScreen() {
     <div style={{ padding: '12px 16px', paddingBottom: 80 }}>
       <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 16 }}>Progress</h2>
 
-      {/* Exercise selector — above tabs, shared between both */}
-      <select
-        value={selectedExId ?? ''}
-        onChange={e => setSelectedExId(Number(e.target.value))}
-        style={{
-          width: '100%',
-          padding: '10px 12px',
-          borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--border)',
-          background: 'var(--surface)',
-          color: 'var(--text)',
-          fontSize: 14,
-          marginBottom: 8,
-        }}
-      >
-        {exercises.map(ex => (
-          <option key={ex.id} value={ex.id}>{ex.name}</option>
-        ))}
-      </select>
+      {/* Exercise selector — custom dropdown with favorites */}
+      <ExerciseSelect exercises={exercises} selectedId={selectedExId} onSelect={setSelectedExId} />
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', padding: 2, marginBottom: 12 }}>
@@ -225,6 +208,87 @@ function VolumeBarChart({ data, loading }: { data: { label: string; volume: numb
             })
         }
       </svg>
+    </div>
+  );
+}
+
+/* ---- Exercise selector dropdown ---- */
+
+function ExerciseSelect({ exercises, selectedId, onSelect }: {
+  exercises: Exercise[];
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const selected = exercises.find(e => e.id === selectedId);
+
+  const toggleFavorite = async (e: React.MouseEvent, ex: Exercise) => {
+    e.stopPropagation();
+    await db.exercises.update(ex.id!, { favorite: !ex.favorite });
+  };
+
+  const filtered = exercises.filter(ex => {
+    if (ex.hidden || ex.archived) return false;
+    if (search.trim() && !ex.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  }).sort((a, b) => {
+    if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  return (
+    <div style={{ position: 'relative', marginBottom: 8 }}>
+      <button onClick={() => setOpen(!open)} style={{
+        width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+        border: '1px solid var(--border)', background: 'var(--surface)',
+        color: 'var(--text)', fontSize: 14, textAlign: 'left',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <span>{selected ? (selected.favorite ? '★ ' : '') + selected.name : 'Select exercise…'}</span>
+        <span style={{ fontSize: 10, color: 'var(--muted)' }}>▼</span>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+          background: 'var(--surface)', borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)', boxShadow: '0 8px 24px var(--shadow)',
+          maxHeight: 320, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+        }}>
+          <div style={{ padding: 8 }}>
+            <input type="search" placeholder="Search…" value={search}
+              onChange={e => setSearch(e.target.value)} autoFocus style={{
+                width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)',
+                border: 'none', background: 'var(--surface-2)', color: 'var(--text)',
+                fontSize: 13, outline: 'none',
+              }} />
+          </div>
+          <div style={{ overflowY: 'auto', maxHeight: 260 }}>
+            {filtered.map(ex => (
+              <div key={ex.id} style={{
+                display: 'flex', alignItems: 'center',
+                borderBottom: '1px solid var(--border)',
+              }}>
+                <button onClick={() => { onSelect(ex.id!); setOpen(false); setSearch(''); }} style={{
+                  flex: 1, padding: '10px 12px', textAlign: 'left', color: 'var(--text)', fontSize: 13,
+                }}>
+                  {ex.name}
+                  <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 6 }}>{ex.group}</span>
+                </button>
+                <button onClick={(e) => toggleFavorite(e, ex)} style={{
+                  padding: '10px 10px', fontSize: 16,
+                  color: ex.favorite ? 'var(--accent)' : 'var(--muted)',
+                }}>
+                  {ex.favorite ? '♥' : '♡'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {open && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />}
     </div>
   );
 }

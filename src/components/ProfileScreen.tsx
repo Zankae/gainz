@@ -7,7 +7,14 @@ import {
   exportBackup,
   restoreBackup,
   type BodyweightEntry,
+  type Exercise,
+  type MuscleGroup,
 } from '../gainz-db';
+
+const GROUPS: MuscleGroup[] = [
+  'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms',
+  'Quadriceps', 'Hamstrings', 'Glutes', 'Calves', 'Abdominals', 'Traps', 'Full body',
+];
 import StepperInput from './StepperInput';
 import ConfirmDialog from './ConfirmDialog';
 
@@ -187,6 +194,9 @@ export default function ProfileScreen() {
           </div>
         )}
       </div>
+
+      {/* Exercise Library */}
+      <ExerciseManager />
 
       {/* Theme — moved down */}
       <div style={{
@@ -402,6 +412,103 @@ function BodyweightLineChart({ data, theme }: { data: BodyweightEntry[]; theme: 
           <circle key={i} cx={x(i)} cy={y(d.kg)} r="3" fill={colors.accent} />
         ))}
       </svg>
+    </div>
+  );
+}
+
+/* ---- Exercise management ---- */
+
+function ExerciseManager() {
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [search, setSearch] = useState('');
+  const [groupFilter, setGroupFilter] = useState<MuscleGroup | ''>('');
+  const [deleteConfirm, setDeleteConfirm] = useState<Exercise | null>(null);
+
+  useEffect(() => {
+    db.exercises.toArray().then(all => setExercises(all.sort((a, b) => a.name.localeCompare(b.name))));
+  }, []);
+
+  const refresh = () => {
+    db.exercises.toArray().then(all => setExercises(all.sort((a, b) => a.name.localeCompare(b.name))));
+  };
+
+  const toggleFavorite = async (ex: Exercise) => {
+    await db.exercises.update(ex.id!, { favorite: !ex.favorite });
+    refresh();
+  };
+
+  const handleDelete = async (ex: Exercise) => {
+    const setCount = await db.sets.where('exerciseId').equals(ex.id!).count();
+    if (setCount > 0) {
+      await db.exercises.update(ex.id!, { archived: true, hidden: true });
+    } else {
+      await db.exercises.delete(ex.id!);
+    }
+    setDeleteConfirm(null);
+    refresh();
+  };
+
+  const filtered = exercises.filter(ex => {
+    if (ex.archived) return false;
+    if (search.trim() && !ex.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (groupFilter && ex.group !== groupFilter) return false;
+    return true;
+  });
+
+  return (
+    <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: 16, marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 12 }}>
+        Exercise Library
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        <input type="search" placeholder="Search…" value={search}
+          onChange={e => setSearch(e.target.value)} style={{
+            flex: 1, padding: '8px 10px', borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border)', background: 'var(--surface-2)',
+            color: 'var(--text)', fontSize: 13, outline: 'none',
+          }} />
+        <select value={groupFilter} onChange={e => setGroupFilter(e.target.value as MuscleGroup | '')} style={{
+          padding: '8px 8px', borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13,
+        }}>
+          <option value="">All</option>
+          {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+      </div>
+      <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+        {filtered.slice(0, 100).map(ex => (
+          <div key={ex.id} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '8px 0', borderBottom: '1px solid var(--border)',
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {ex.name}
+                {ex.custom && <span style={{ fontSize: 9, color: 'var(--muted)', marginLeft: 4 }}>custom</span>}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--muted)' }}>{ex.group} · {ex.equipment}</div>
+            </div>
+            <button onClick={() => toggleFavorite(ex)} style={{
+              padding: '6px 8px', fontSize: 18,
+              color: ex.favorite ? 'var(--accent)' : 'var(--muted)',
+            }}>{ex.favorite ? '♥' : '♡'}</button>
+            <button onClick={() => setDeleteConfirm(ex)} style={{
+              padding: '6px 8px', fontSize: 14, color: 'var(--loss)',
+            }}>🗑</button>
+          </div>
+        ))}
+      </div>
+      {deleteConfirm && (
+        <ConfirmDialog
+          open={true}
+          title="Remove Exercise"
+          message={`Remove "${deleteConfirm.name}"? Historical data will be preserved.`}
+          confirmLabel="Remove"
+          destructive={true}
+          onConfirm={() => handleDelete(deleteConfirm)}
+          onCancel={() => setDeleteConfirm(null)}
+        />
+      )}
     </div>
   );
 }
