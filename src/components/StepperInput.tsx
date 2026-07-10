@@ -34,10 +34,16 @@ export default function StepperInput({
     if (!editing) return;
     setEditing(false);
     try {
-      const normalized =
-        mode === 'weight'
-          ? normalizeQuarterKg(editText || '0')
-          : normalizeReps(editText || '0');
+      let normalized: number;
+      if (mode === 'weight') {
+        // Allow any decimal — don't round. Just clean and validate.
+        const cleaned = editText.trim().replace(',', '.');
+        const parsed = Number(cleaned);
+        if (!Number.isFinite(parsed) || parsed < 0) throw new Error('Invalid');
+        normalized = parsed;
+      } else {
+        normalized = normalizeReps(editText || '0');
+      }
       onChange(Math.max(min, normalized));
     } catch {
       // Invalid input — revert to current value

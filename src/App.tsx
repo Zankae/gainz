@@ -79,8 +79,8 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 1 }}>
+      <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 'calc(var(--nav-h) + env(safe-area-inset-bottom, 0px))' }}>
           {tab === 'home' && <HomeScreen onNavigate={setTab} />}
           {tab === 'workout' && <WorkoutScreen />}
           {tab === 'history' && <HistoryScreen onNavigate={setTab} />}

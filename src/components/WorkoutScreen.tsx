@@ -26,6 +26,7 @@ interface LocalSet {
 interface LocalExercise {
   exerciseId: number;
   exercise: Exercise;
+  weId?: number;  // workoutExerciseId for direct DB access
   sets: LocalSet[];
   lastTime: SetEntry[] | null;
   lastTimeLoading: boolean;
@@ -81,6 +82,7 @@ export default function WorkoutScreen() {
       loaded.push({
         exerciseId: we.exerciseId,
         exercise,
+        weId: we.id,
         sets: sets.map(s => ({ id: s.id, weightKg: s.weightKg, reps: s.reps })),
         lastTime: last.length ? last : null,
         lastTimeLoading: false,
@@ -146,6 +148,7 @@ export default function WorkoutScreen() {
         reps: 0,
       });
       newEx.sets[0].id = setId;
+      newEx.weId = weId;
     }
 
     const newExs = [...exercises, newEx];
@@ -189,15 +192,11 @@ export default function WorkoutScreen() {
     const newSet: LocalSet = { weightKg: lastSet.weightKg, reps: lastSet.reps };
 
     if (workout) {
-      // Persist to DB immediately
-      const we = await db.workoutExercises
-        .where('[workoutId+order]')
-        .between([workout.id!, 0], [workout.id!, 999])
-        .and(w => w.exerciseId === newExs[exIndex].exerciseId)
-        .first();
-      if (we?.id) {
+      // Use stored workoutExerciseId for reliable DB access
+      const weId = newExs[exIndex].weId;
+      if (weId) {
         const id = await db.sets.add({
-          workoutExerciseId: we.id,
+          workoutExerciseId: weId,
           workoutId: workout.id!,
           exerciseId: newExs[exIndex].exerciseId,
           performedAt: Date.now(),
