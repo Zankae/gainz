@@ -1,0 +1,137 @@
+/* ============================================================
+   GAINZ — Design Tokens
+   Extracted verbatim from gainz-design.html. This IS the design
+   system. Import it once, globally, before any component styles.
+
+   Two rules, both non-negotiable:
+
+   1. Structural tokens go on :root. Colour tokens go ONLY inside
+      the two theme blocks. If you put a colour token on :root it
+      will still match <html> when data-theme="light", and light
+      mode will silently inherit the dark background.
+
+   2. Theme is switched by setting data-theme on <html>, never by
+      a class on <body> and never by toggling a stylesheet.
+        document.documentElement.dataset.theme = 'dark' | 'light'
+      "System" is not a third value — resolve the media query and
+      write 'dark' or 'light'.
+   ============================================================ */
+
+:root {
+  --radius: 14px;
+  --radius-sm: 10px;
+  --nav-h: 64px;
+  --font-display: "Barlow Condensed", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+/* ---------------- DARK (default) ---------------- */
+html[data-theme="dark"] {
+  --bg: #0E1116;          /* app background — the darkest surface */
+  --surface: #171C24;     /* cards — lighter than the background */
+  --surface-2: #1F2630;   /* inputs, raised chips, steppers */
+  --border: #2A3341;
+  --grid: #232B36;        /* chart gridlines only — barely visible by design */
+  --text: #EDF1F5;
+  --muted: #8A94A3;
+  --accent: #5BB8F5;      /* light blue: primary actions, active nav */
+  --accent-dim: #1E3A52;  /* accent backgrounds, selected chips */
+  --on-accent: #08121C;   /* text on an accent fill */
+  --gain: #34D877;        /* up / increase / finish */
+  --gain-dim: #12351F;
+  --on-gain: #07130B;
+  --loss: #F45B69;        /* down / decrease / destructive */
+  --loss-dim: #3A1A20;
+  --shadow: rgba(0, 0, 0, .4);
+}
+
+/* ---------------- LIGHT ----------------
+   Warm off-white, NOT an inverted dark mode.
+   --bg is deliberately darker than --surface so cards lift off
+   the page. Never let the background equal or exceed the card
+   lightness. --accent is darkened from the dark-mode value so it
+   still passes contrast on a near-white card. */
+html[data-theme="light"] {
+  --bg: #EBE7DE;          /* warm off-white — DARKER than the cards */
+  --surface: #FBFAF7;     /* cards — near white */
+  --surface-2: #E3DED2;   /* inputs, raised chips — darker than cards */
+  --border: #CFC8B9;
+  --grid: #E2DDD1;
+  --text: #1B1F26;
+  --muted: #6C685E;
+  --accent: #1273BE;
+  --accent-dim: #D5E7F5;
+  --on-accent: #FFFFFF;
+  --gain: #13803F;
+  --gain-dim: #D8EEE0;
+  --on-gain: #FFFFFF;
+  --loss: #C42B3C;
+  --loss-dim: #F7DDE0;
+  --shadow: rgba(60, 50, 32, .14);
+}
+
+/* ============================================================
+   Global base. Everything below is also lifted from the
+   prototype — it is not optional polish, it is what makes the
+   app feel like a native app rather than a web page.
+   ============================================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;   /* kill the blue flash on tap */
+}
+
+html, body, #root { min-height: 100%; }
+html { background: var(--bg); }               /* prevents a dark flash behind overscroll */
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.4;
+  max-width: 480px;      /* the app is a phone app even on a desktop browser */
+  margin: 0 auto;
+  overscroll-behavior: none;   /* no pull-to-refresh inside an installed PWA */
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+button:disabled { opacity: .4; cursor: default; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Every number in the app uses the condensed display face with
+   tabular figures, so digits never jitter as values change. */
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+}
+
+/* Respect the notch / home indicator on installed PWAs.
+   The viewport meta must carry viewport-fit=cover for this to work. */
+nav { padding-bottom: env(safe-area-inset-bottom); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* ============================================================
+   Fonts: bundle these two locally as woff2. The prototype loads them
+   from Google Fonts only for convenience. The real Vite app should
+   import the Fontsource packages listed in PWA-HANDOFF.md so Workbox
+   can precache the emitted files.
+
+     Barlow Condensed — 600, 700, 800   (all numbers, headings)
+     Inter            — 400, 500, 600, 700  (all body text)
+
+   Declare them with font-display: swap and precache the woff2
+   files in the service worker.
+   ============================================================ */
