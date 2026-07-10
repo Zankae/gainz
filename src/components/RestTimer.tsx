@@ -1,71 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRestTimer } from '../useRestTimer';
 
 const PRESETS = [30, 60, 90, 120, 180];
 
 export default function RestTimer() {
-  const [seconds, setSeconds] = useState(60);
-  const [running, setRunning] = useState(false);
-  const [remaining, setRemaining] = useState(60);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const clearTimer = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
-
-  const tick = useCallback(() => {
-    setRemaining((prev) => {
-      if (prev <= 1) {
-        clearTimer();
-        setRunning(false);
-        if (navigator.vibrate) {
-          navigator.vibrate([200, 100, 200, 100, 200]);
-        }
-        return 0;
-      }
-      return prev - 1;
-    });
-  }, [clearTimer]);
-
-  useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(tick, 1000);
-    } else {
-      clearTimer();
-    }
-    return clearTimer;
-  }, [running, tick, clearTimer]);
-
-  useEffect(() => {
-    return clearTimer;
-  }, [clearTimer]);
-
-  const startPause = () => {
-    if (remaining <= 0) {
-      setRemaining(seconds);
-    }
-    setRunning(!running);
-  };
-
-  const reset = () => {
-    setRunning(false);
-    setRemaining(seconds);
-  };
-
-  const setPreset = (s: number) => {
-    setRunning(false);
-    setSeconds(s);
-    setRemaining(s);
-  };
-
-  const addTime = () => {
-    setRemaining((prev) => prev + 15);
-    if (!running) {
-      setSeconds((prev) => prev + 15);
-    }
-  };
+  const { seconds, remaining, running, startPause, reset, setPreset, addTime } = useRestTimer();
 
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
