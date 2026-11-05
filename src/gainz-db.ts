@@ -140,6 +140,30 @@ class GainzDB extends Dexie {
 
 export const db = new GainzDB();
 
+/* ---------- exercise editing ---------- */
+
+export type ExerciseDetails = Pick<Exercise, 'name' | 'group' | 'equipment' | 'perHand' | 'favorite'>;
+
+/** Keep the ID and all workout/history references intact; only edit metadata. */
+export async function updateExercise(id: number, details: ExerciseDetails): Promise<Exercise> {
+  const name = details.name.trim();
+  if (!name) throw new Error('Enter an exercise name');
+
+  return db.transaction('rw', db.exercises, async () => {
+    const exercise = await db.exercises.get(id);
+    if (!exercise) throw new Error('Exercise no longer exists');
+    const changes: ExerciseDetails = {
+      name,
+      group: details.group,
+      equipment: details.equipment,
+      perHand: details.perHand,
+      favorite: details.favorite,
+    };
+    await db.exercises.update(id, changes);
+    return { ...exercise, ...changes };
+  });
+}
+
 /* ---------- validated numeric values ---------- */
 
 /** Accept Android locale decimals ("12,5" or "12.5") and store quarter-kilo values. */

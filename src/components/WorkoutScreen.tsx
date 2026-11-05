@@ -545,6 +545,9 @@ export default function WorkoutScreen() {
           open={showPicker}
           onClose={() => setShowPicker(false)}
           onSelect={addExercise}
+          onExerciseUpdated={exercise => setExercises(current => current.map(item =>
+            item.exerciseId === exercise.id ? { ...item, exercise } : item,
+          ))}
           selectedIds={new Set(exercises.map(e => e.exerciseId))}
         />
       )}

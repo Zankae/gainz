@@ -12,10 +12,9 @@ import {
   type Equipment,
 } from '../gainz-db';
 
-const GROUPS: MuscleGroup[] = [
-  'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms',
-  'Quadriceps', 'Hamstrings', 'Glutes', 'Calves', 'Abdominals', 'Traps', 'Full body',
-];
+import { GROUPS } from '../exercise-options';
+import ExerciseButton from './ExerciseButton';
+import ExerciseEditor from './ExerciseEditor';
 import StepperInput from './StepperInput';
 import ConfirmDialog from './ConfirmDialog';
 
@@ -469,6 +468,7 @@ function ExerciseManager() {
   const [groupFilter, setGroupFilter] = useState<MuscleGroup | ''>('');
   const [deleteConfirm, setDeleteConfirm] = useState<Exercise | null>(null);
   const [deleteHistory, setDeleteHistory] = useState(false);
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
 
   useEffect(() => {
     db.exercises.toArray().then(all => setExercises(all.sort((a, b) => a.name.localeCompare(b.name))));
@@ -536,19 +536,21 @@ function ExerciseManager() {
           {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
       </div>
+      <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>Hold an exercise to edit it.</p>
       <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-        {filtered.slice(0, 100).map(ex => (
+        {filtered.map(ex => (
           <div key={ex.id} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '8px 0', borderBottom: '1px solid var(--border)',
           }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <ExerciseButton onEdit={() => setEditingExercise(ex)} onClick={() => setEditingExercise(ex)}
+              aria-label={`Edit ${ex.name}`} style={{ flex: 1, minWidth: 0, textAlign: 'left', padding: '4px 0' }}>
               <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {ex.name}
                 {ex.custom && <span style={{ fontSize: 9, color: 'var(--muted)', marginLeft: 4 }}>custom</span>}
               </div>
               <div style={{ fontSize: 10, color: 'var(--muted)' }}>{ex.group} · {ex.equipment}</div>
-            </div>
+            </ExerciseButton>
             <button onClick={() => toggleFavorite(ex)} style={{
               padding: '6px 8px', fontSize: 18,
               color: ex.favorite ? 'var(--accent)' : 'var(--muted)',
@@ -559,6 +561,13 @@ function ExerciseManager() {
           </div>
         ))}
       </div>
+      {editingExercise && (
+        <ExerciseEditor
+          exercise={editingExercise}
+          onClose={() => setEditingExercise(null)}
+          onSaved={() => { setEditingExercise(null); refresh(); }}
+        />
+      )}
       {deleteConfirm && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,.5)' }}
           onClick={() => { setDeleteConfirm(null); setDeleteHistory(false); }}>
