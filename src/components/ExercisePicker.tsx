@@ -1,35 +1,25 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db, type Exercise, type MuscleGroup, type Equipment } from '../gainz-db';
-
-const GROUPS: MuscleGroup[] = [
-  'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms',
-  'Quadriceps', 'Hamstrings', 'Glutes', 'Calves', 'Abdominals', 'Traps', 'Full body',
-];
-
-const EQUIPMENT: Equipment[] = [
-  'barbell', 'dumbbell', 'cable', 'machine', 'smith', 'plate', 'bodyweight', 'other',
-];
+import { EQUIPMENT, GROUPS } from '../exercise-options';
+import ExerciseButton from './ExerciseButton';
+import ExerciseEditor from './ExerciseEditor';
 
 interface ExercisePickerProps {
   open: boolean;
   onClose: () => void;
   onSelect: (exercise: Exercise) => void;
   selectedIds?: Set<number>;
+  onExerciseUpdated: (exercise: Exercise) => void;
 }
 
-export default function ExercisePicker({ open, onClose, onSelect, selectedIds }: ExercisePickerProps) {
+export default function ExercisePicker({ open, onClose, onSelect, selectedIds, onExerciseUpdated }: ExercisePickerProps) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState<MuscleGroup | ''>('');
   const [equipFilter, setEquipFilter] = useState<Equipment | ''>('');
 
-  // Custom exercise creation
-  const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newGroup, setNewGroup] = useState<MuscleGroup>('Chest');
-  const [newEquip, setNewEquip] = useState<Equipment>('barbell');
-  const [newPerHand, setNewPerHand] = useState(false);
-  const [newFavorite, setNewFavorite] = useState(false);
+  // undefined = list, null = create, Exercise = edit.
+  const [editor, setEditor] = useState<Exercise | null | undefined>(undefined);
 
   const loadExercises = () => {
     db.exercises.toArray().then((all) => {
@@ -40,7 +30,7 @@ export default function ExercisePicker({ open, onClose, onSelect, selectedIds }:
   useEffect(() => {
     if (!open) return;
     loadExercises();
-    setShowCreate(false);
+    setEditor(undefined);
     setSearch('');
     setGroupFilter('');
     setEquipFilter('');
@@ -49,23 +39,6 @@ export default function ExercisePicker({ open, onClose, onSelect, selectedIds }:
   const toggleFavorite = async (e: React.MouseEvent, exercise: Exercise) => {
     e.stopPropagation();
     await db.exercises.update(exercise.id!, { favorite: !exercise.favorite });
-    loadExercises();
-  };
-
-  const createExercise = async () => {
-    if (!newName.trim()) return;
-    await db.exercises.add({
-      name: newName.trim(),
-      group: newGroup,
-      equipment: newEquip,
-      perHand: newPerHand,
-      custom: true,
-      favorite: newFavorite,
-      hidden: false,
-      archived: false,
-    });
-    setShowCreate(false);
-    setNewName('');
     loadExercises();
   };
 
@@ -94,7 +67,7 @@ export default function ExercisePicker({ open, onClose, onSelect, selectedIds }:
 
       {/* Header */}
       <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border)' }}>
-        <button onClick={onClose} style={{ fontSize: 24, lineHeight: 1, padding: 4 }}>✕</button>
+        <button aria-label="Close exercise picker" onClick={onClose} style={{ fontSize: 24, lineHeight: 1, padding: 4 }}>✕</button>
         <input type="search" placeholder="Search exercises…" value={search}
           onChange={(e) => setSearch(e.target.value)} style={{
             flex: 1, height: 40, padding: '0 12px', borderRadius: 'var(--radius-sm)',
@@ -120,111 +93,68 @@ export default function ExercisePicker({ open, onClose, onSelect, selectedIds }:
         )}
       </div>
 
-      {/* Create form or list */}
-      {showCreate ? (
-        <div style={{ padding: 16, flex: 1, overflowY: 'auto' }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, marginBottom: 16 }}>New Exercise</h3>
-          <input type="text" placeholder="Exercise name" value={newName}
-            onChange={e => setNewName(e.target.value)} autoFocus style={{
-              width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)',
-              fontSize: 14, outline: 'none', marginBottom: 12,
-            }} />
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Muscle Group</div>
-            <select value={newGroup} onChange={e => setNewGroup(e.target.value as MuscleGroup)} style={{
-              width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13,
-            }}>
-              {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Equipment</div>
-            <select value={newEquip} onChange={e => setNewEquip(e.target.value as Equipment)} style={{
-              width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13,
-            }}>
-              {EQUIPMENT.map(eq => <option key={eq} value={eq}>{eq}</option>)}
-            </select>
-          </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', marginBottom: 8 }}>
-            <input type="checkbox" checked={newPerHand} onChange={e => setNewPerHand(e.target.checked)} />
-            Per-hand weight
-          </label>
-          <button onClick={() => setNewFavorite(!newFavorite)} style={{
-            display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)',
-            marginBottom: 16, padding: 0,
-          }}>
-            <span style={{ fontSize: 20, color: newFavorite ? 'var(--accent)' : 'var(--muted)' }}>
-              {newFavorite ? '♥' : '♡'}
-            </span>
-            Favorite
-          </button>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setShowCreate(false)} style={{
-              flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)',
-              background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontWeight: 500,
-            }}>Cancel</button>
-            <button onClick={createExercise} disabled={!newName.trim()} style={{
-              flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)',
-              background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 13, fontWeight: 600,
-            }}>Create</button>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Exercise list */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-            {filtered.map((exercise) => {
-              const alreadySelected = selectedIds?.has(exercise.id!);
-              return (
-                <div key={exercise.id} style={{
-                  display: 'flex', alignItems: 'center',
-                  borderBottom: '1px solid var(--border)',
-                }}>
-                  <button onClick={() => alreadySelected ? undefined : onSelect(exercise)} style={{
-                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 16px', textAlign: 'left',
-                    opacity: alreadySelected ? 0.35 : 1, color: 'var(--text)',
-                    cursor: alreadySelected ? 'default' : 'pointer',
-                  }}>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 500 }}>
-                        {exercise.name}
-                        {exercise.custom && <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 4 }}>custom</span>}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                        {exercise.group} · {exercise.equipment}{exercise.perHand ? ' · per hand' : ''}
-                      </div>
-                    </div>
-                  </button>
-                  {/* Favorite heart */}
-                  <button onClick={(e) => toggleFavorite(e, exercise)} style={{
-                    padding: '10px 10px', fontSize: 20,
-                    color: exercise.favorite ? 'var(--accent)' : 'var(--muted)',
-                    marginRight: 16,
-                  }}>
-                    {exercise.favorite ? '♥' : '♡'}
-                  </button>
-                </div>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div style={{ padding: 32, textAlign: 'center', color: 'var(--muted)' }}>No exercises found</div>
-            )}
-          </div>
+      <p style={{ padding: '8px 16px 0', fontSize: 12, color: 'var(--muted)' }}>Hold an exercise to edit it.</p>
 
-          {/* Create exercise button */}
-          <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
-            <button onClick={() => setShowCreate(true)} style={{
-              width: '100%', padding: '12px 0', borderRadius: 'var(--radius-sm)',
-              border: '2px dashed var(--border)', color: 'var(--accent)', fontSize: 14, fontWeight: 600,
+      {/* Exercise list */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+        {filtered.map((exercise) => {
+          const alreadySelected = selectedIds?.has(exercise.id!);
+          return (
+            <div key={exercise.id} style={{
+              display: 'flex', alignItems: 'center',
+              borderBottom: '1px solid var(--border)',
             }}>
-              + Create Exercise
-            </button>
-          </div>
-        </>
+              <ExerciseButton onEdit={() => setEditor(exercise)} onClick={() => alreadySelected ? undefined : onSelect(exercise)} style={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 16px', textAlign: 'left',
+                opacity: alreadySelected ? 0.35 : 1, color: 'var(--text)',
+                cursor: alreadySelected ? 'default' : 'pointer',
+              }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 500 }}>
+                    {exercise.name}
+                    {exercise.custom && <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 4 }}>custom</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                    {exercise.group} · {exercise.equipment}{exercise.perHand ? ' · per hand' : ''}
+                  </div>
+                </div>
+              </ExerciseButton>
+              {/* Favorite heart */}
+              <button onClick={(e) => toggleFavorite(e, exercise)} style={{
+                padding: '10px 10px', fontSize: 20,
+                color: exercise.favorite ? 'var(--accent)' : 'var(--muted)',
+                marginRight: 16,
+              }}>
+                {exercise.favorite ? '♥' : '♡'}
+              </button>
+            </div>
+          );
+        })}
+        {filtered.length === 0 && (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--muted)' }}>No exercises found</div>
+        )}
+      </div>
+
+      {/* Create exercise button */}
+      <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
+        <button onClick={() => setEditor(null)} style={{
+          width: '100%', padding: '12px 0', borderRadius: 'var(--radius-sm)',
+          border: '2px dashed var(--border)', color: 'var(--accent)', fontSize: 14, fontWeight: 600,
+        }}>
+          + Create Exercise
+        </button>
+      </div>
+      {editor !== undefined && (
+        <ExerciseEditor
+          exercise={editor ?? undefined}
+          onClose={() => setEditor(undefined)}
+          onSaved={saved => {
+            if (editor) onExerciseUpdated(saved);
+            setEditor(undefined);
+            loadExercises();
+          }}
+        />
       )}
     </div>
   );

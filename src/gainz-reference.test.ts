@@ -12,6 +12,9 @@ import {
   chartRowsForExercise,
   exportBackup,
   restoreBackup,
+  updateExercise,
+  lastPerformance,
+  bestWeightKg,
 } from './gainz-db';
 import { buildCandles, hasWick, sessionsFromSets, candleLayout } from './gainz-candles';
 
@@ -126,6 +129,58 @@ describe('GAINZ reference data layer', () => {
     expect(await db.exercises.count()).toBe(0);
     await restoreBackup(backup);
     expect(await db.exercises.count()).toBe(104);
+  });
+
+  it.each([false, true])('edits a custom=%s exercise without changing workout data or references', async (custom) => {
+    const original = {
+      name: 'Original press', group: 'Chest' as const, equipment: 'barbell' as const,
+      perHand: false, favorite: false, custom, hidden: true, archived: false,
+    };
+    const exerciseId = await db.exercises.add(original);
+    const draft = { exercises: [{ exerciseId, sets: [{ weightKg: 12.5, reps: 8 }] }] };
+    await saveDraftWorkout(draft);
+    const finishedId = await startWorkout();
+    await finishWorkout(finishedId);
+    await saveDraftWorkout(draft);
+    const activeId = await startWorkout();
+    await saveDraftWorkout(draft);
+    await db.templates.add({ name: 'Push day', exerciseIds: [exerciseId], draftJson: JSON.stringify(draft), lastUsedAt: null });
+    await db.bodyweight.add({ at: Date.now(), kg: 72.3 });
+    await db.settings.put({ key: 'profileName', value: 'Test lifter' });
+
+    const otherTables = db.tables.filter(table => table.name !== 'exercises');
+    const before = await Promise.all(otherTables.map(table => table.toArray()));
+    const performance = await lastPerformance(exerciseId);
+    const chart = await chartRowsForExercise(exerciseId);
+    const updated = await updateExercise(exerciseId, {
+      name: '  Renamed press  ', group: 'Shoulders', equipment: 'dumbbell', perHand: true, favorite: true,
+    });
+
+    // Reopen the existing database, as on an app update/relaunch.
+    db.close();
+    await db.open();
+    await seedIfEmpty();
+    expect(await db.exercises.count()).toBe(1);
+    expect(await db.exercises.get(exerciseId)).toEqual(updated);
+    expect(updated).toEqual({
+      ...original, id: exerciseId, name: 'Renamed press', group: 'Shoulders',
+      equipment: 'dumbbell', perHand: true, favorite: true,
+    });
+    expect(await Promise.all(otherTables.map(table => table.toArray()))).toEqual(before);
+    expect((await getActiveWorkout())?.id).toBe(activeId);
+    expect(await lastPerformance(exerciseId)).toEqual(performance);
+    expect(await chartRowsForExercise(exerciseId)).toEqual(chart);
+    expect(await bestWeightKg(exerciseId)).toBe(12.5);
+    expect((await exportBackup()).exercises).toEqual([updated]);
+  });
+
+  it('rejects empty names and missing exercises without adding or overwriting data', async () => {
+    await seedIfEmpty();
+    const before = await db.exercises.toArray();
+    const exercise = before[0];
+    await expect(updateExercise(exercise.id!, { ...exercise, name: '   ' })).rejects.toThrow('Enter an exercise name');
+    await expect(updateExercise(9999, exercise)).rejects.toThrow('Exercise no longer exists');
+    expect(await db.exercises.toArray()).toEqual(before);
   });
 });
 

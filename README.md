@@ -10,6 +10,7 @@ Track your workouts, see progress with candlestick charts, and keep all your dat
 - Rest timer with vibration alert between sets
 - See what you lifted last time for each exercise
 - Reuse previous workouts as templates
+- Hold an exercise in the workout picker or Profile's Exercise Library to edit its name, muscle group, equipment, per-hand label, and favorite status; existing workout logs stay linked
 - Browse your history in list or calendar view
 - View progress with TradingView-style candlestick charts
 - Track your bodyweight over time
