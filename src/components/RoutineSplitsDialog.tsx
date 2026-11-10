@@ -1,8 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { getRoutineSplits, ROUTINE_DAYS, saveRoutineCell, type RoutineDay, type RoutineFields, type RoutineSplits } from '../routine-splits';
+import { getRoutineSplits, ROUTINE_DAYS, saveRoutineCell, saveRoutineCellHeight, type RoutineDay, type RoutineFields, type RoutineSplits } from '../routine-splits';
+import RoutineCell from './RoutineCell';
 import './RoutineSplitsDialog.css';
 
-type CellEdit = { day: RoutineDay; field: keyof RoutineFields; value: string };
+type CellEdit = { day: RoutineDay; field: keyof RoutineFields } & (
+  { kind: 'text'; value: string } | { kind: 'height'; value: number }
+);
 type SaveStatus = 'saved' | 'saving' | 'error';
 
 export default function RoutineSplitsDialog({ onClose }: { onClose: () => void }) {
@@ -32,11 +35,12 @@ export default function RoutineSplitsDialog({ onClose }: { onClose: () => void }
   }, []);
 
   const persist = async (edit: CellEdit) => {
-    const key = `${edit.day}:${edit.field}`;
+    const key = `${edit.day}:${edit.field}:${edit.kind}`;
     pendingWrites.current += 1;
     setStatus('saving');
     try {
-      await saveRoutineCell(edit.day, edit.field, edit.value);
+      if (edit.kind === 'text') await saveRoutineCell(edit.day, edit.field, edit.value);
+      else await saveRoutineCellHeight(edit.day, edit.field, edit.value);
       if (pendingEdits.current.get(key) === edit) pendingEdits.current.delete(key);
     } catch {
       // Retain the unsaved value in the table and offer a retry.
@@ -50,8 +54,17 @@ export default function RoutineSplitsDialog({ onClose }: { onClose: () => void }
 
   const changeCell = (day: RoutineDay, field: keyof RoutineFields, value: string) => {
     setRoutine(current => current && { ...current, [day]: { ...current[day], [field]: value } });
-    const edit = { day, field, value };
-    pendingEdits.current.set(`${day}:${field}`, edit);
+    const edit: CellEdit = { kind: 'text', day, field, value };
+    pendingEdits.current.set(`${day}:${field}:text`, edit);
+    void persist(edit);
+  };
+
+  const resizeCell = (day: RoutineDay, field: keyof RoutineFields, height: number) => {
+    setRoutine(current => current && {
+      ...current, [day]: { ...current[day], heights: { ...current[day].heights, [field]: height } },
+    });
+    const edit: CellEdit = { kind: 'height', day, field, value: height };
+    pendingEdits.current.set(`${day}:${field}:height`, edit);
     void persist(edit);
   };
 
@@ -71,7 +84,7 @@ export default function RoutineSplitsDialog({ onClose }: { onClose: () => void }
           <button type="button" aria-label="Close routine splits" autoFocus
             disabled={status !== 'saved'} onClick={close}>✕</button>
         </header>
-        <p id={descriptionId} className="routine-dialog-description">Tap a cell to edit. Changes save automatically.</p>
+        <p id={descriptionId} className="routine-dialog-description">Tap to edit. Drag a cell’s bottom-right corner to resize. Changes save automatically.</p>
         {routine ? (
           <div className="routine-table-scroll">
             <table className="routine-table" aria-label="Weekly routine splits">
@@ -82,10 +95,12 @@ export default function RoutineSplitsDialog({ onClose }: { onClose: () => void }
                 {ROUTINE_DAYS.map(day => (
                   <tr key={day}>
                     <th scope="row">{day}</th>
-                    <td><textarea aria-label={`${day} muscle groups`} rows={2} value={routine[day].muscleGroups}
-                      onChange={event => changeCell(day, 'muscleGroups', event.target.value)} /></td>
-                    <td><textarea aria-label={`${day} notes`} rows={2} value={routine[day].notes}
-                      onChange={event => changeCell(day, 'notes', event.target.value)} /></td>
+                    <td><RoutineCell label={`${day} muscle groups`} value={routine[day].muscleGroups}
+                      height={routine[day].heights?.muscleGroups} onChange={value => changeCell(day, 'muscleGroups', value)}
+                      onResize={height => resizeCell(day, 'muscleGroups', height)} /></td>
+                    <td><RoutineCell label={`${day} notes`} value={routine[day].notes}
+                      height={routine[day].heights?.notes} onChange={value => changeCell(day, 'notes', value)}
+                      onResize={height => resizeCell(day, 'notes', height)} /></td>
                   </tr>
                 ))}
               </tbody>

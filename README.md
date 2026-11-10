@@ -16,6 +16,7 @@ Track your workouts, see progress with candlestick charts, and keep all your dat
 - View progress with TradingView-style candlestick charts
 - Track your bodyweight over time
 - Plan your week in Profile → Routine - Splits: fixed Monday–Sunday rows prefilled with your weekly split, plus editable notes, saved automatically offline and included in backups
+- Drag a routine cell’s bottom-right corner to resize it, including compact rest days; cell sizes save automatically too
 - Export and restore all your data as a JSON backup
 - Dark and light themes
 

@@ -6,7 +6,14 @@ export const ROUTINE_DAYS = [
 
 export type RoutineDay = typeof ROUTINE_DAYS[number];
 export type RoutineFields = { muscleGroups: string; notes: string };
-export type RoutineSplits = Record<RoutineDay, RoutineFields>;
+export type RoutineCellHeights = Partial<Record<keyof RoutineFields, number>>;
+export type RoutineSplits = Record<RoutineDay, RoutineFields & { heights?: RoutineCellHeights }>;
+export const MIN_ROUTINE_CELL_HEIGHT = 42;
+export const MAX_ROUTINE_CELL_HEIGHT = 600;
+
+export function clampRoutineCellHeight(height: number): number {
+  return Math.min(MAX_ROUTINE_CELL_HEIGHT, Math.max(MIN_ROUTINE_CELL_HEIGHT, Math.round(height)));
+}
 
 const ROUTINE_KEY = 'routineSplits';
 const IMAGE_SEEDED_KEY = 'routineSplitsImageSeeded';
@@ -27,9 +34,17 @@ function readRoutine(value: unknown): RoutineSplits {
   return Object.fromEntries(ROUTINE_DAYS.map(day => {
     const row = stored[day];
     const fields = row && typeof row === 'object' ? row as Record<string, unknown> : {};
+    const storedHeights = fields.heights && typeof fields.heights === 'object'
+      ? fields.heights as Record<string, unknown> : {};
+    const heights: RoutineCellHeights = {};
+    for (const field of ['muscleGroups', 'notes'] as const) {
+      const height = storedHeights[field];
+      if (typeof height === 'number' && Number.isFinite(height)) heights[field] = clampRoutineCellHeight(height);
+    }
     return [day, {
       muscleGroups: typeof fields.muscleGroups === 'string' ? fields.muscleGroups : '',
       notes: typeof fields.notes === 'string' ? fields.notes : '',
+      ...(Object.keys(heights).length ? { heights } : {}),
     }];
   })) as RoutineSplits;
 }
@@ -60,6 +75,16 @@ export async function saveRoutineCell(day: RoutineDay, field: keyof RoutineField
   await db.transaction('rw', db.settings, async () => {
     const routine = await readOrSeedRoutine();
     routine[day][field] = value;
+    await db.settings.put({ key: ROUTINE_KEY, value: routine });
+  });
+}
+
+/** Store only this cell's size, preserving text and simultaneous edits. */
+export async function saveRoutineCellHeight(day: RoutineDay, field: keyof RoutineFields, height: number): Promise<void> {
+  if (!Number.isFinite(height)) throw new Error('Cell height must be a finite number');
+  await db.transaction('rw', db.settings, async () => {
+    const routine = await readOrSeedRoutine();
+    routine[day].heights = { ...routine[day].heights, [field]: clampRoutineCellHeight(height) };
     await db.settings.put({ key: ROUTINE_KEY, value: routine });
   });
 }

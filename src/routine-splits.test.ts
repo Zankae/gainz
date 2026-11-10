@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db, exportBackup, restoreBackup } from './gainz-db';
-import { getRoutineSplits, saveRoutineCell } from './routine-splits';
+import { getRoutineSplits, saveRoutineCell, saveRoutineCellHeight } from './routine-splits';
 
 beforeEach(async () => {
   db.close();
@@ -99,5 +99,39 @@ describe('routine splits persistence', () => {
     expect(Object.keys(routine)).toEqual(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
     expect(routine.Monday).toEqual({ muscleGroups: 'Rest', notes: 'Rest' });
     expect(routine.Sunday).toEqual({ muscleGroups: 'Legs', notes: '' });
+  });
+
+  it('keeps cell sizes across reopening and backups without overwriting concurrent text edits', async () => {
+    await Promise.all([
+      saveRoutineCellHeight('Monday', 'muscleGroups', 42),
+      saveRoutineCell('Monday', 'notes', 'Easy walk'),
+      saveRoutineCellHeight('Monday', 'notes', 54),
+      saveRoutineCellHeight('Friday', 'muscleGroups', 120),
+      saveRoutineCellHeight('Friday', 'muscleGroups', 42),
+    ]);
+    db.close();
+    await db.open();
+    const routine = await getRoutineSplits();
+    expect(routine.Monday).toEqual({
+      muscleGroups: 'Rest', notes: 'Easy walk', heights: { muscleGroups: 42, notes: 54 },
+    });
+    expect(routine.Friday.heights).toEqual({ muscleGroups: 42 });
+    expect(routine.Tuesday.heights).toBeUndefined();
+    const backup = await exportBackup();
+    await db.settings.clear();
+    await restoreBackup(backup);
+    expect(await getRoutineSplits()).toEqual(routine);
+  });
+
+  it('bounds restored sizes and rejects invalid resize writes while keeping routine text', async () => {
+    await db.settings.put({ key: 'routineSplits', value: {
+      Monday: { muscleGroups: 'Rest', notes: 'Keep me', heights: { muscleGroups: -10, notes: 5000 } },
+      Tuesday: { muscleGroups: 'Chest', notes: '', heights: { muscleGroups: 'bad', notes: NaN } },
+    } });
+    const routine = await getRoutineSplits();
+    expect(routine.Monday).toEqual({ muscleGroups: 'Rest', notes: 'Keep me', heights: { muscleGroups: 42, notes: 600 } });
+    expect(routine.Tuesday.heights).toBeUndefined();
+    await expect(saveRoutineCellHeight('Monday', 'notes', Infinity)).rejects.toThrow('finite number');
+    expect(await getRoutineSplits()).toEqual(routine);
   });
 });
