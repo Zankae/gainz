@@ -9,12 +9,50 @@ beforeEach(async () => {
   await db.open();
 });
 
+const expectedMuscleGroups = [
+  'Rest',
+  'Chest + biceps + rear shoulders',
+  'Legs + side shoulders + calves + abs',
+  'Back + triceps + traps + forearms',
+  'Rest',
+  'Shoulders first, then chest + back + biceps + triceps',
+  'Legs + calves + abs',
+];
+
 describe('routine splits persistence', () => {
-  it('starts with empty cells in a fixed Monday–Sunday week without writing defaults', async () => {
+  it('prefills the exact image routine in a fixed Monday–Sunday week with blank notes', async () => {
     const routine = await getRoutineSplits();
     expect(Object.keys(routine)).toEqual(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
-    expect(Object.values(routine)).toEqual(Array.from({ length: 7 }, () => ({ muscleGroups: '', notes: '' })));
-    expect(await db.settings.count()).toBe(0);
+    expect(Object.values(routine)).toEqual(expectedMuscleGroups.map(muscleGroups => ({ muscleGroups, notes: '' })));
+    db.close();
+    await db.open();
+    expect(await getRoutineSplits()).toEqual(routine);
+  });
+
+  it('fills previously saved empty cells once while preserving existing edits and notes', async () => {
+    await db.settings.put({ key: 'routineSplits', value: {
+      Monday: { muscleGroups: '', notes: 'Walk outside' },
+      Tuesday: { muscleGroups: 'My custom split', notes: '' },
+      Friday: { muscleGroups: '   ', notes: '' },
+    } });
+    const routine = await getRoutineSplits();
+    expect(routine.Monday).toEqual({ muscleGroups: 'Rest', notes: 'Walk outside' });
+    expect(routine.Tuesday.muscleGroups).toBe('My custom split');
+    expect(routine.Friday.muscleGroups).toBe('Rest');
+    expect(routine.Saturday.muscleGroups).toBe(expectedMuscleGroups[5]);
+
+    await saveRoutineCell('Monday', 'muscleGroups', '');
+    await saveRoutineCell('Sunday', 'muscleGroups', 'Custom Sunday');
+    db.close();
+    await db.open();
+    expect((await getRoutineSplits()).Monday.muscleGroups).toBe('');
+    expect((await getRoutineSplits()).Sunday.muscleGroups).toBe('Custom Sunday');
+
+    const backup = await exportBackup();
+    await db.settings.clear();
+    await restoreBackup(backup);
+    expect((await getRoutineSplits()).Monday.muscleGroups).toBe('');
+    expect((await getRoutineSplits()).Sunday.muscleGroups).toBe('Custom Sunday');
   });
 
   it('keeps the latest fast edits across cells without changing unrelated data', async () => {
@@ -48,7 +86,7 @@ describe('routine splits persistence', () => {
 
     // Backups created before this feature have no routine setting.
     await restoreBackup({ ...backup, settings: [] });
-    expect(Object.values(await getRoutineSplits()).every(row => row.muscleGroups === '' && row.notes === '')).toBe(true);
+    expect(Object.values(await getRoutineSplits())).toEqual(expectedMuscleGroups.map(muscleGroups => ({ muscleGroups, notes: '' })));
   });
 
   it('ignores unknown days and non-text cells in restored settings', async () => {
@@ -59,7 +97,7 @@ describe('routine splits persistence', () => {
     } });
     const routine = await getRoutineSplits();
     expect(Object.keys(routine)).toEqual(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
-    expect(routine.Monday).toEqual({ muscleGroups: '', notes: 'Rest' });
+    expect(routine.Monday).toEqual({ muscleGroups: 'Rest', notes: 'Rest' });
     expect(routine.Sunday).toEqual({ muscleGroups: 'Legs', notes: '' });
   });
 });

@@ -37,6 +37,7 @@
   display: block;
   width: 100%;
   min-height: 72px;
+  field-sizing: content;
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
