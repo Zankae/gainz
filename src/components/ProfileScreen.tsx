@@ -17,6 +17,7 @@ import ExerciseButton from './ExerciseButton';
 import ExerciseEditor from './ExerciseEditor';
 import StepperInput from './StepperInput';
 import ConfirmDialog from './ConfirmDialog';
+import RoutineSplitsDialog from './RoutineSplitsDialog';
 
 export default function ProfileScreen() {
   const { theme, preference, setPreference } = useTheme();
@@ -24,6 +25,7 @@ export default function ProfileScreen() {
   const [bwValue, setBwValue] = useState(70);
   const [lastBackup, setLastBackup] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showRoutine, setShowRoutine] = useState(false);
   const [confirm, setConfirm] = useState<{ title: string; message: string; onConfirm: () => void; destructive?: boolean } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -120,6 +122,13 @@ export default function ProfileScreen() {
   return (
     <div style={{ padding: '16px', paddingBottom: 80 }}>
       <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 16 }}>Profile</h2>
+
+      <button type="button" onClick={() => setShowRoutine(true)} aria-haspopup="dialog" style={{
+        width: '100%', padding: '14px 16px', marginBottom: 16,
+        borderRadius: 'var(--radius)', background: 'var(--accent-dim)',
+        color: 'var(--accent)', fontSize: 15, fontWeight: 600, textAlign: 'left',
+      }}>Routine - Splits</button>
+      {showRoutine && <RoutineSplitsDialog onClose={() => setShowRoutine(false)} />}
 
       {/* Bodyweight Chart — always visible at top */}
       <BodyweightLineChart data={bodyweightEntries} theme={theme} />

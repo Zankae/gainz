@@ -1,0 +1,58 @@
+.routine-dialog {
+  inset: 0;
+  margin: auto;
+  width: calc(100% - 16px);
+  max-width: 680px;
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 32px var(--shadow);
+  overflow: hidden;
+}
+
+.routine-dialog::backdrop { background: rgba(0, 0, 0, .6); }
+
+.routine-dialog-content {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+  padding: 12px;
+}
+
+.routine-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.routine-dialog-header h3 { font-family: var(--font-display); font-size: 24px; }
+.routine-dialog-header button { flex-shrink: 0; width: 44px; height: 44px; border-radius: var(--radius-sm); font-size: 20px; }
+.routine-dialog-description { margin-bottom: 16px; color: var(--muted); font-size: 12px; }
+.routine-table-scroll { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.routine-table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; }
+.routine-table thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); font-size: 12px; padding: 10px 4px; }
+.routine-table th:first-child { width: 96px; }
+.routine-table tbody th { font-size: 12px; font-weight: 600; padding: 16px 4px; }
+.routine-table tbody th, .routine-table td { border-top: 1px solid var(--border); vertical-align: top; }
+.routine-table td { padding: 8px 4px; }
+.routine-table textarea {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+  resize: vertical;
+}
+.routine-table textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.routine-save-status, .routine-message { padding-top: 12px; font-size: 12px; color: var(--muted); }
+.routine-save-status button, .routine-message button { color: var(--accent); text-decoration: underline; padding: 4px; }
+
+@media (min-width: 600px) {
+  .routine-dialog-content { padding: 20px; }
+  .routine-table th:first-child { width: 118px; }
+  .routine-table tbody th, .routine-table thead th { font-size: 14px; }
+}
