@@ -12,6 +12,7 @@ Track your workouts, see progress with candlestick charts, and keep all your dat
 - Reuse previous workouts as templates
 - Hold an exercise in the workout picker or Profile's Exercise Library to edit its name, muscle group, equipment, per-hand label, and favorite status; existing workout logs stay linked
 - Browse your history in list or calendar view
+- Training days roll over at 06:00 Sweden time (Europe/Stockholm), so late-night workouts count toward the previous day across history, summaries, and progress charts
 - View progress with TradingView-style candlestick charts
 - Track your bodyweight over time
 - Export and restore all your data as a JSON backup

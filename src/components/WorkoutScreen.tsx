@@ -16,6 +16,7 @@ import StepperInput from './StepperInput';
 import ExercisePicker from './ExercisePicker';
 import RestTimer from './RestTimer';
 import ConfirmDialog from './ConfirmDialog';
+import { formatTrainingDate, formatWorkoutTime } from '../training-day';
 
 interface LocalSet {
   id?: number;
@@ -595,10 +596,10 @@ export default function WorkoutScreen() {
             </h3>
             <div style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.8 }}>
               <div>
-                {new Date(summaryData.startedAt).toLocaleDateString()}{' '}
-                {new Date(summaryData.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {formatTrainingDate(summaryData.startedAt)}{' '}
+                {formatWorkoutTime(summaryData.startedAt)}
                 {' — '}
-                {new Date(summaryData.endedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {formatWorkoutTime(summaryData.endedAt)}
               </div>
               <div>Duration: {formatDuration(summaryData.endedAt - summaryData.startedAt)}</div>
               <div>{summaryData.setCount} completed sets</div>

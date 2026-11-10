@@ -69,3 +69,10 @@
 Go to https://github.com/Zankae/gainz → Settings → Pages → Source: GitHub Actions
 The deploy workflow will run on the next push to main and publish to:
 https://zankae.github.io/gainz/
+
+## Training-day rollover — 2026-11-10
+
+- Training days now begin at 06:00 in Europe/Stockholm, including Sweden's daylight-saving changes, regardless of the device timezone.
+- Applied the shared calendar rule to Home summaries, History list/calendar, workout completion, and strength/volume chart periods. Real timestamps and IndexedDB records stay intact; existing late-night workouts are grouped automatically.
+- Day-dependent screens refresh at the boundary and when the PWA resumes.
+- Validation: typecheck and production build passed; all 36 tests passed in UTC, America/Los_Angeles, and Europe/Stockholm. Chromium verified Monday assignment, weekly totals, live 06:00 rollover, calendar grouping, persisted data, manifest/icons under `/gainz/`, service-worker control, and offline reload.

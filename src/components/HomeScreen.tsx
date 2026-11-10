@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { calendarDateKey, formatTrainingDate, getTrainingDate, getTrainingDayKey } from '../training-day';
+import { useTrainingDay } from '../useTrainingDay';
 import {
   db, getActiveWorkout, startWorkout, saveDraftWorkout,
   type Workout, type BodyweightEntry, type Exercise, type Template,
@@ -11,6 +13,7 @@ interface WeeklyDot {
 }
 
 export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' | 'workout' | 'history' | 'progress' | 'profile') => void }) {
+  const todayKey = useTrainingDay();
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
   const [recentWorkout, setRecentWorkout] = useState<Workout | null>(null);
   const [weekCount, setWeekCount] = useState(0);
@@ -35,35 +38,36 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
       setRecentWorkout(finished[0] ?? null);
 
       // Weekly
-      const now = new Date();
+      const now = new Date(`${todayKey}T00:00:00Z`);
       const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-      weekStart.setHours(0, 0, 0, 0);
-      const weekStartMs = weekStart.getTime();
-      const thisWeek = finished.filter(w => w.startedAt >= weekStartMs);
+      weekStart.setUTCDate(now.getUTCDate() - ((now.getUTCDay() + 6) % 7));
+      const nextWeek = new Date(weekStart);
+      nextWeek.setUTCDate(weekStart.getUTCDate() + 7);
+      const thisWeek = finished.filter(w => {
+        const date = getTrainingDate(w.startedAt);
+        return date >= weekStart && date < nextWeek;
+      });
       setWeekCount(thisWeek.length);
 
       const dots: WeeklyDot[] = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(weekStart);
-        d.setDate(weekStart.getDate() + i);
-        const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-        const dayEnd = dayStart + 86400000;
+        d.setUTCDate(weekStart.getUTCDate() + i);
+        const key = calendarDateKey(d);
         dots.push({
           day: ['M', 'T', 'W', 'T', 'F', 'S', 'S'][i],
-          trained: thisWeek.some(w => w.startedAt >= dayStart && w.startedAt < dayEnd),
-          isToday: now.toDateString() === d.toDateString(),
+          trained: thisWeek.some(w => getTrainingDayKey(w.startedAt) === key),
+          isToday: todayKey === key,
         });
       }
       setWeekDots(dots);
 
       // Monthly
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-      const thisMonth = finished.filter(w => w.startedAt >= monthStart);
+      const thisMonth = finished.filter(w => getTrainingDayKey(w.startedAt).slice(0, 7) === todayKey.slice(0, 7));
       setMonthCount(thisMonth.length);
       const dayMap = new Map<number, number>();
       for (const w of thisMonth) {
-        const day = new Date(w.startedAt).getDate();
+        const day = getTrainingDate(w.startedAt).getUTCDate();
         dayMap.set(day, (dayMap.get(day) || 0) + 1);
       }
       setMonthWorkouts(Array.from(dayMap.entries()).map(([day, count]) => ({ day, count })).sort((a, b) => a.day - b.day));
@@ -90,21 +94,22 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
 
       setLoading(false);
     })();
-  }, []);
+  }, [todayKey]);
 
   // Monthly mini chart
   const monthChart = useMemo(() => {
     if (monthWorkouts.length === 0) return null;
     const maxH = 40;
     const maxCount = Math.max(...monthWorkouts.map(m => m.count), 1);
-    const days = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+    const today = new Date(`${todayKey}T00:00:00Z`);
+    const days = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0)).getUTCDate();
     return (
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: maxH, flex: 1, maxWidth: 200, marginLeft: 8 }}>
         {Array.from({ length: days }, (_, i) => {
           const day = i + 1;
           const entry = monthWorkouts.find(m => m.day === day);
           const h = entry ? Math.max(2, (entry.count / maxCount) * maxH) : 1;
-          const isToday = day === new Date().getDate();
+          const isToday = day === today.getUTCDate();
           return (
             <div key={i} style={{
               flex: 1,
@@ -118,7 +123,7 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
         })}
       </div>
     );
-  }, [monthWorkouts]);
+  }, [monthWorkouts, todayKey]);
 
   const handleLoadTemplate = async (template: Template) => {
     if (!template.exerciseIds.length) return;
@@ -156,8 +161,8 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
   }
 
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const lastWorkoutDay = recentWorkout ? days[new Date(recentWorkout.startedAt).getDay()] : '';
-  const lastWorkoutDate = recentWorkout ? new Date(recentWorkout.startedAt).toLocaleDateString() : '';
+  const lastWorkoutDay = recentWorkout ? days[getTrainingDate(recentWorkout.startedAt).getUTCDay()] : '';
+  const lastWorkoutDate = recentWorkout ? formatTrainingDate(recentWorkout.startedAt) : '';
 
   return (
     <div style={{ padding: '20px 16px', paddingBottom: 80 }}>
@@ -246,7 +251,7 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
                     {t.name}
                     <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
                       {t.exerciseIds.length} exercise{t.exerciseIds.length !== 1 ? 's' : ''}
-                      {t.lastUsedAt ? ` · last used ${new Date(t.lastUsedAt).toLocaleDateString()}` : ''}
+                      {t.lastUsedAt ? ` · last used ${formatTrainingDate(t.lastUsedAt)}` : ''}
                     </div>
                   </button>
                   <button onClick={() => deleteTemplate(t.id!)} style={{

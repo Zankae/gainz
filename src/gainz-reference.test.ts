@@ -197,9 +197,9 @@ describe('GAINZ candle model', () => {
 
   it('creates a weekly wick when an internal session escapes the body', () => {
     const sessions = [
-      { at: new Date(2026, 0, 5).getTime(), topWeightKg: 10, repsAtTopWeight: 8, sets: 1, volumeKg: 80 },
-      { at: new Date(2026, 0, 7).getTime(), topWeightKg: 15, repsAtTopWeight: 5, sets: 1, volumeKg: 75 },
-      { at: new Date(2026, 0, 9).getTime(), topWeightKg: 12, repsAtTopWeight: 6, sets: 1, volumeKg: 72 },
+      { at: Date.parse('2026-01-05T18:00:00+01:00'), topWeightKg: 10, repsAtTopWeight: 8, sets: 1, volumeKg: 80 },
+      { at: Date.parse('2026-01-07T18:00:00+01:00'), topWeightKg: 15, repsAtTopWeight: 5, sets: 1, volumeKg: 75 },
+      { at: Date.parse('2026-01-09T18:00:00+01:00'), topWeightKg: 12, repsAtTopWeight: 6, sets: 1, volumeKg: 72 },
     ];
     const [candle] = buildCandles(sessions, 'Week', 'weight');
     expect(hasWick(candle)).toBe(true);

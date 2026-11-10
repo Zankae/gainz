@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db, saveDraftWorkout, getActiveWorkout, type Workout, type Exercise, type SetEntry } from '../gainz-db';
+import { calendarDateKey, formatWorkoutTime, getTrainingDate, getTrainingDayKey } from '../training-day';
+import { useTrainingDay } from '../useTrainingDay';
 
 type ViewMode = 'list' | 'calendar';
 
@@ -13,14 +15,15 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function HistoryScreen({ onNavigate }: { onNavigate?: (tab: 'home' | 'workout' | 'history' | 'progress' | 'profile') => void }) {
+  const todayKey = useTrainingDay();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   // Calendar state
   const [calMonth, setCalMonth] = useState(() => {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() };
+    const now = getTrainingDate();
+    return { year: now.getUTCFullYear(), month: now.getUTCMonth() };
   });
   const [selectedDay, setSelectedDay] = useState<WorkoutSummary[] | null>(null);
   // Template save prompt
@@ -57,17 +60,16 @@ export default function HistoryScreen({ onNavigate }: { onNavigate?: (tab: 'home
   }, []);
 
   // --- Calendar helpers ---
-  const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const daysInMonth = (year: number, month: number) => new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const firstDayOfMonth = (year: number, month: number) => {
-    const d = new Date(year, month, 1).getDay();
+    const d = new Date(Date.UTC(year, month, 1)).getUTCDay();
     return d === 0 ? 6 : d - 1; // Monday = 0
   };
 
   const workoutsByDate = useMemo(() => {
     const map = new Map<string, WorkoutSummary[]>();
     for (const ws of workouts) {
-      const d = new Date(ws.workout.startedAt);
-      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const key = getTrainingDayKey(ws.workout.startedAt);
       const arr = map.get(key) || [];
       arr.push(ws);
       map.set(key, arr);
@@ -85,7 +87,7 @@ export default function HistoryScreen({ onNavigate }: { onNavigate?: (tab: 'home
   }, [calMonth]);
 
   const getDayKey = (day: number) =>
-    `${calMonth.year}-${calMonth.month}-${day}`;
+    calendarDateKey(new Date(Date.UTC(calMonth.year, calMonth.month, day)));
 
   const handleDayClick = (day: number) => {
     const key = getDayKey(day);
@@ -121,17 +123,16 @@ export default function HistoryScreen({ onNavigate }: { onNavigate?: (tab: 'home
   };
 
   const formatDate = (ts: number) => {
-    const d = new Date(ts);
-    const today = new Date();
+    const d = getTrainingDate(ts);
+    const today = new Date(`${todayKey}T00:00:00Z`);
     const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    if (d.toDateString() === today.toDateString()) return 'Today';
-    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return `${DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+    yesterday.setUTCDate(today.getUTCDate() - 1);
+    if (calendarDateKey(d) === todayKey) return 'Today';
+    if (calendarDateKey(d) === calendarDateKey(yesterday)) return 'Yesterday';
+    return `${DAYS[d.getUTCDay() === 0 ? 6 : d.getUTCDay() - 1]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
   };
 
-  const formatTime = (ts: number) =>
-    new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatTime = formatWorkoutTime;
 
   const formatDuration = (start: number, end: number) => {
     const mins = Math.round((end - start) / 60000);
@@ -330,7 +331,7 @@ export default function HistoryScreen({ onNavigate }: { onNavigate?: (tab: 'home
               if (day === null) return <div key={`empty-${i}`} />;
               const key = getDayKey(day);
               const hasWorkout = workoutsByDate.has(key);
-              const isToday = new Date().toDateString() === new Date(calMonth.year, calMonth.month, day).toDateString();
+              const isToday = todayKey === key;
 
               return (
                 <button
