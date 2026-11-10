@@ -108,7 +108,7 @@ export interface DraftWorkout {
   updatedAt: number;
 }
 
-/** Known keys include theme, profile fields, backup time and draftWorkout. */
+/** Known keys include theme, profile fields, backup time, draftWorkout and routineSplits. */
 export interface Setting {
   key: string;
   value: unknown;
