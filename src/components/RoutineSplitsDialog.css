@@ -33,10 +33,12 @@
 .routine-table tbody th { font-size: 12px; font-weight: 600; padding: 16px 4px; }
 .routine-table tbody th, .routine-table td { border-top: 1px solid var(--border); vertical-align: top; }
 .routine-table td { padding: 8px 4px; }
+.routine-cell { position: relative; }
 .routine-table textarea {
   display: block;
   width: 100%;
-  min-height: 72px;
+  min-height: 42px;
+  max-height: 600px;
   field-sizing: content;
   padding: 8px;
   border: 1px solid var(--border);
@@ -46,8 +48,23 @@
   font: inherit;
   font-size: 16px;
   line-height: 1.4;
-  resize: vertical;
+  resize: none;
 }
+.routine-cell-resizer {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 2px;
+  color: var(--muted);
+  cursor: ns-resize;
+  touch-action: none;
+}
+.routine-cell-resizer:focus-visible { outline: 2px solid var(--accent); border-radius: 4px; }
 .routine-table textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .routine-save-status, .routine-message { padding-top: 12px; font-size: 12px; color: var(--muted); }
 .routine-save-status button, .routine-message button { color: var(--accent); text-decoration: underline; padding: 4px; }
