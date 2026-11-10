@@ -5,7 +5,7 @@ interface ExerciseButtonProps extends ComponentProps<'button'> {
 }
 
 /** A tap keeps its usual action; holding opens the editor without a follow-up tap. */
-export default function ExerciseButton({ onEdit, onClick, style, ...props }: ExerciseButtonProps) {
+export default function ExerciseButton({ onEdit, onClick, style, title = 'Hold to edit (or press Shift+F10)', ...props }: ExerciseButtonProps) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const origin = useRef<{ x: number; y: number; id: number } | null>(null);
   const suppressClick = useRef(false);
@@ -61,7 +61,7 @@ export default function ExerciseButton({ onEdit, onClick, style, ...props }: Exe
     <button
       {...props}
       type="button"
-      title="Hold to edit (or press Shift+F10)"
+      title={title}
       style={{ ...style, userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'pan-y' }}
       onPointerDown={event => {
         cancelHold();

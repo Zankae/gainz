@@ -23,6 +23,8 @@ export default function ProfileScreen() {
   const { theme, preference, setPreference } = useTheme();
   const [bodyweightEntries, setBodyweightEntries] = useState<BodyweightEntry[]>([]);
   const [bwValue, setBwValue] = useState(70);
+  const [bwInputVersion, setBwInputVersion] = useState(0);
+  const [showAllBodyweights, setShowAllBodyweights] = useState(false);
   const [lastBackup, setLastBackup] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showRoutine, setShowRoutine] = useState(false);
@@ -44,6 +46,13 @@ export default function ProfileScreen() {
   };
 
   // --- Bodyweight ---
+  const copyBodyweight = (entry: BodyweightEntry) => {
+    setBwValue(entry.kg);
+    // Discard any unfinished keyboard edit so it cannot replace the copied value on blur.
+    setBwInputVersion(version => version + 1);
+    showToast(`Copied ${entry.kg.toFixed(2)} kg — tap LOG to save`);
+  };
+
   const logBodyweight = async () => {
     const kg = normalizeWeight(bwValue);
     await db.bodyweight.add({ at: Date.now(), kg });
@@ -146,7 +155,7 @@ export default function ProfileScreen() {
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
           <div style={{ flex: 1 }}>
-            <StepperInput mode="weight" value={bwValue} onChange={setBwValue} />
+            <StepperInput key={bwInputVersion} mode="weight" value={bwValue} onChange={setBwValue} />
           </div>
           <button
             onClick={logBodyweight}
@@ -171,35 +180,49 @@ export default function ProfileScreen() {
         {bodyweightEntries.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em' }}>
-              Recent entries
+              {showAllBodyweights ? 'All entries' : 'Recent entries'}
             </div>
-            {bodyweightEntries.slice(0, 5).map((entry) => (
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Hold a weight to copy it above. Tap LOG when ready.</p>
+            <div style={showAllBodyweights ? { maxHeight: 260, overflowY: 'auto', overscrollBehavior: 'contain' } : undefined}>
+            {(showAllBodyweights ? bodyweightEntries : bodyweightEntries.slice(0, 5)).map((entry) => (
               <div
                 key={entry.id}
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  padding: '6px 0',
+                  padding: '2px 0',
                   borderBottom: '1px solid var(--border)',
                 }}
               >
-                <div>
+                <ExerciseButton onEdit={() => copyBodyweight(entry)}
+                  onClick={event => { if (event.detail === 0) copyBodyweight(entry); }}
+                  title="Hold to copy weight (or press Enter)"
+                  aria-label={`Copy ${entry.kg.toFixed(2)} kg from ${new Date(entry.at).toLocaleDateString()} to the bodyweight field`}
+                  style={{ flex: 1, minWidth: 0, minHeight: 40, textAlign: 'left', padding: '6px 0' }}>
                   <span className="num" style={{ fontSize: 14, fontWeight: 600 }}>
                     {entry.kg.toFixed(2)} kg
                   </span>
                   <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 8 }}>
                     {new Date(entry.at).toLocaleDateString()}
                   </span>
-                </div>
+                </ExerciseButton>
                 <button
+                  type="button"
+                  aria-label={`Delete ${entry.kg.toFixed(2)} kg entry from ${new Date(entry.at).toLocaleDateString()}`}
                   onClick={() => deleteBodyweight(entry)}
-                  style={{ fontSize: 14, color: 'var(--loss)', padding: '2px 4px' }}
+                  style={{ fontSize: 14, color: 'var(--loss)', padding: '2px 4px', minWidth: 40, minHeight: 40 }}
                 >
                   🗑
                 </button>
               </div>
             ))}
+            </div>
+            {bodyweightEntries.length > 5 && (
+              <button type="button" onClick={() => setShowAllBodyweights(value => !value)} style={{
+                minHeight: 40, color: 'var(--accent)', fontSize: 12, fontWeight: 600,
+              }}>{showAllBodyweights ? 'Show recent entries' : `Show all ${bodyweightEntries.length} entries`}</button>
+            )}
           </div>
         )}
       </div>
@@ -360,7 +383,7 @@ export default function ProfileScreen() {
 
       {/* Toast */}
       {toast && (
-        <div style={{
+        <div role="status" style={{
           position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
           padding: '10px 20px', borderRadius: 'var(--radius)', background: 'var(--accent)',
           color: 'var(--on-accent)', fontSize: 13, fontWeight: 600, zIndex: 500,
