@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db, chartRowsForExercise, type Exercise } from '../gainz-db';
 import CandlestickChart from './CandlestickChart';
-import { type Period } from '../gainz-candles';
+import { getTrainingPeriodKey, type Period } from '../gainz-candles';
 
 type ProgressTab = 'strength' | 'volume';
 
@@ -35,16 +35,7 @@ export default function ProgressScreen() {
       const rows = await chartRowsForExercise(selectedExId);
       const buckets = new Map<string, { volume: number; at: number }>();
       for (const r of rows) {
-        const d = new Date(r.workoutStartedAt!);
-        let key: string;
-        if (volPeriod === 'Day') key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-        else if (volPeriod === 'Week') {
-          const start = new Date(d);
-          start.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-          key = `${start.getFullYear()}-W${Math.ceil((start.getDate() + 6) / 7)}`;
-        }
-        else if (volPeriod === 'Year') key = `${d.getFullYear()}`;
-        else key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const key = getTrainingPeriodKey(r.workoutStartedAt, volPeriod);
         const existing = buckets.get(key);
         buckets.set(key, { volume: (existing?.volume || 0) + r.weightKg * r.reps, at: r.workoutStartedAt! });
       }

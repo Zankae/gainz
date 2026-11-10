@@ -14,6 +14,8 @@
         candle's open still carries from the last real close.
    ============================================================ */
 
+import { calendarDateKey, getTrainingDate } from './training-day';
+
 export type Period = 'Day' | 'Week' | 'Month' | 'Year';
 
 /** Metrics that have a meaningful open and close, so can be candles.
@@ -63,9 +65,9 @@ export interface Candle {
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-/** ISO-8601 week number. Weeks start Monday; week 1 contains the first Thursday. */
+/** ISO-8601 week of a UTC calendar date (as returned by getTrainingDate). */
 export function isoWeek(d: Date): [number, number] {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   const dow = t.getUTCDay() || 7;
   t.setUTCDate(t.getUTCDate() + 4 - dow);
   const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
@@ -74,24 +76,29 @@ export function isoWeek(d: Date): [number, number] {
 }
 
 const KEY: Record<Period, (d: Date) => string> = {
-  Day:   d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
-  Week:  d => isoWeek(d).join('-'),
-  Month: d => `${d.getFullYear()}-${d.getMonth()}`,
-  Year:  d => `${d.getFullYear()}`,
+  Day:   calendarDateKey,
+  Week:  d => { const [year, week] = isoWeek(d); return `${year}-W${String(week).padStart(2, '0')}`; },
+  Month: d => calendarDateKey(d).slice(0, 7),
+  Year:  d => `${d.getUTCFullYear()}`,
 };
 
+/** Shared by strength and volume so every chart uses the same training periods. */
+export function getTrainingPeriodKey(at: number, period: Period): string {
+  return KEY[period](getTrainingDate(at));
+}
+
 const LABEL: Record<Period, (d: Date) => string> = {
-  Day:   d => `${d.getDate()}/${d.getMonth() + 1}`,
+  Day:   d => `${d.getUTCDate()}/${d.getUTCMonth() + 1}`,
   Week:  d => `W${isoWeek(d)[1]}`,
-  Month: d => MONTHS[d.getMonth()],
-  Year:  d => `${d.getFullYear()}`,
+  Month: d => MONTHS[d.getUTCMonth()],
+  Year:  d => `${d.getUTCFullYear()}`,
 };
 
 const FULL: Record<Period, (d: Date) => string> = {
-  Day:   d => `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`,
+  Day:   d => `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
   Week:  d => `Week ${isoWeek(d)[1]}, ${isoWeek(d)[0]}`,
-  Month: d => `${MONTHS[d.getMonth()]} ${d.getFullYear()}`,
-  Year:  d => `${d.getFullYear()}`,
+  Month: d => `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
+  Year:  d => `${d.getUTCFullYear()}`,
 };
 
 /* ---------- the model ---------- */
@@ -135,7 +142,7 @@ export function buildCandles(
   const order: Bucket[] = [];
 
   for (const s of sessions) {
-    const d = new Date(s.at);
+    const d = getTrainingDate(s.at);
     const key = KEY[period](d);
     let b = map.get(key);
     if (!b) {
