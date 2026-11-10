@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { calendarDateKey, formatTrainingDate, getTrainingDate, getTrainingDayKey } from '../training-day';
 import { useTrainingDay } from '../useTrainingDay';
 import { ensureRoutineTemplates } from '../routine-templates';
+import { templateExercises } from '../templates';
+import HoldToEditButton from './ExerciseButton';
+import TemplateEditor from './TemplateEditor';
 import {
   db, getActiveWorkout, startWorkout, saveDraftWorkout,
   type Workout, type BodyweightEntry, type Exercise, type Template,
@@ -30,6 +33,7 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
   const [showTemplates, setShowTemplates] = useState(false);
   const [loadedTemplate, setLoadedTemplate] = useState<Template | null>(null);
   const [missingRoutineFavorites, setMissingRoutineFavorites] = useState<string[]>([]);
+  const [templateEditor, setTemplateEditor] = useState<Template | null | undefined>(undefined);
 
   useEffect(() => {
     (async () => {
@@ -129,18 +133,8 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
   }, [monthWorkouts, todayKey]);
 
   const handleLoadTemplate = async (template: Template) => {
-    if (!template.exerciseIds.length) return;
-    // Try to load draft with weights/reps, fall back to empty sets
-    let draftExercises: { exerciseId: number; sets: { weightKg: number; reps: number }[] }[];
-    try {
-      const parsed = JSON.parse(template.draftJson || '{}');
-      draftExercises = parsed.exercises || [];
-    } catch {
-      draftExercises = template.exerciseIds.map(id => ({ exerciseId: id, sets: [{ weightKg: 0, reps: 0 }] }));
-    }
-    if (!draftExercises.length) {
-      draftExercises = template.exerciseIds.map(id => ({ exerciseId: id, sets: [{ weightKg: 0, reps: 0 }] }));
-    }
+    const draftExercises = templateExercises(template);
+    if (!draftExercises.length) return;
     const draft = { exercises: draftExercises };
     await saveDraftWorkout(draft);
     await db.templates.update(template.id!, { lastUsedAt: Date.now() });
@@ -237,6 +231,7 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18 }}>Templates</h3>
               <button onClick={() => setShowTemplates(false)} style={{ fontSize: 22 }}>✕</button>
             </div>
+            <p style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 12 }}>Tap to load. Hold a template to edit it.</p>
             {missingRoutineFavorites.length > 0 && (
               <details style={{ marginBottom: 16, color: 'var(--muted)', fontSize: 12 }}>
                 <summary>Heart these exercises in Profile to add your five routine templates</summary>
@@ -247,7 +242,7 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
             )}
             {templates.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>
-                No templates yet. Save a workout from History as a template.
+                No templates yet. Create one below or save a workout from History.
               </div>
             ) : (
               templates.map(t => (
@@ -256,7 +251,7 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
                   padding: '12px 14px', borderRadius: 'var(--radius-sm)',
                   background: 'var(--surface-2)', marginBottom: 8,
                 }}>
-                  <button onClick={() => handleLoadTemplate(t)} style={{
+                  <HoldToEditButton onEdit={() => setTemplateEditor(t)} onClick={() => handleLoadTemplate(t)} style={{
                     flex: 1, textAlign: 'left', color: 'var(--text)', fontSize: 14, fontWeight: 500,
                   }}>
                     {t.name}
@@ -264,15 +259,30 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
                       {t.exerciseIds.length} exercise{t.exerciseIds.length !== 1 ? 's' : ''}
                       {t.lastUsedAt ? ` · last used ${formatTrainingDate(t.lastUsedAt)}` : ''}
                     </div>
-                  </button>
-                  <button onClick={() => deleteTemplate(t.id!)} style={{
+                  </HoldToEditButton>
+                  <button aria-label={`Delete template ${t.name}`} onClick={() => deleteTemplate(t.id!)} style={{
                     color: 'var(--loss)', fontSize: 14, padding: '4px 8px',
                   }}>🗑</button>
                 </div>
               ))
             )}
+            <button type="button" onClick={() => setTemplateEditor(null)} style={{
+              width: '100%', minHeight: 46, marginTop: 8, borderRadius: 'var(--radius-sm)',
+              background: 'var(--accent-dim)', color: 'var(--accent)', fontSize: 14, fontWeight: 600,
+            }}>+ New Template</button>
           </div>
         </div>
+      )}
+
+      {templateEditor !== undefined && (
+        <TemplateEditor template={templateEditor ?? undefined}
+          onClose={() => setTemplateEditor(undefined)}
+          onSaved={saved => {
+            setTemplates(current => current.some(item => item.id === saved.id)
+              ? current.map(item => item.id === saved.id ? saved : item) : [...current, saved]);
+            setLoadedTemplate(current => current?.id === saved.id ? saved : current);
+            setTemplateEditor(undefined);
+          }} />
       )}
 
       {/* This Week */}

@@ -9,6 +9,7 @@ export default function ExerciseButton({ onEdit, onClick, style, ...props }: Exe
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const origin = useRef<{ x: number; y: number; id: number } | null>(null);
   const suppressClick = useRef(false);
+  const stopReleaseGuard = useRef<(() => void) | null>(null);
 
   const cancelHold = () => {
     if (timer.current !== null) clearTimeout(timer.current);
@@ -16,11 +17,43 @@ export default function ExerciseButton({ onEdit, onClick, style, ...props }: Exe
     origin.current = null;
   };
 
-  useEffect(() => cancelHold, []);
+  useEffect(() => () => { cancelHold(); stopReleaseGuard.current?.(); }, []);
 
   const edit = () => {
+    const heldPointer = origin.current;
     cancelHold();
     suppressClick.current = true;
+    // A newly opened dialog can receive the touch's compatibility mouse events.
+    // Ignore that release, but allow the next deliberate pointer/keyboard action.
+    if (heldPointer) {
+      stopReleaseGuard.current?.();
+      let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+      const cleanup = () => {
+        clearTimeout(releaseTimer);
+        window.removeEventListener('mousedown', blockRelease, true);
+        window.removeEventListener('click', blockRelease, true);
+        window.removeEventListener('pointerup', released, true);
+        window.removeEventListener('pointercancel', released, true);
+        window.removeEventListener('pointerdown', cleanup, true);
+        if (stopReleaseGuard.current === cleanup) stopReleaseGuard.current = null;
+      };
+      const blockRelease = (event: MouseEvent) => {
+        if (event.detail === 0) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (event.type === 'click') cleanup();
+      };
+      const released = (event: PointerEvent) => {
+        if (event.pointerId !== heldPointer.id) return;
+        releaseTimer = setTimeout(cleanup, 500);
+      };
+      stopReleaseGuard.current = cleanup;
+      window.addEventListener('mousedown', blockRelease, true);
+      window.addEventListener('click', blockRelease, true);
+      window.addEventListener('pointerup', released, true);
+      window.addEventListener('pointercancel', released, true);
+      window.addEventListener('pointerdown', cleanup, true);
+    }
     onEdit();
   };
 
