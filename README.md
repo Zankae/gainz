@@ -10,6 +10,7 @@ Track your workouts, see progress with candlestick charts, and keep all your dat
 - Rest timer with vibration alert between sets
 - See what you lifted last time for each exercise
 - Reuse previous workouts as templates
+- Five starter templates match the Tuesday–Sunday training split and selected hearted exercises, with quad/hamstring emphasis and shoulders first on Saturday's machine day. They are added once without replacing existing data; weights and reps start at zero for you to fill in.
 - Hold an exercise in the workout picker or Profile's Exercise Library to edit its name, muscle group, equipment, per-hand label, and favorite status; existing workout logs stay linked
 - Browse your history in list or calendar view
 - Training days roll over at 06:00 Sweden time (Europe/Stockholm), so late-night workouts count toward the previous day across history, summaries, and progress charts

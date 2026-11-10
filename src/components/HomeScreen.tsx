@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { calendarDateKey, formatTrainingDate, getTrainingDate, getTrainingDayKey } from '../training-day';
 import { useTrainingDay } from '../useTrainingDay';
+import { ensureRoutineTemplates } from '../routine-templates';
 import {
   db, getActiveWorkout, startWorkout, saveDraftWorkout,
   type Workout, type BodyweightEntry, type Exercise, type Template,
@@ -28,6 +29,7 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
   const [templates, setTemplates] = useState<Template[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [loadedTemplate, setLoadedTemplate] = useState<Template | null>(null);
+  const [missingRoutineFavorites, setMissingRoutineFavorites] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -90,6 +92,7 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
       setRecentPBs(pbs.slice(0, 100));
 
       // Templates
+      setMissingRoutineFavorites(await ensureRoutineTemplates());
       setTemplates(await db.templates.toArray());
 
       setLoading(false);
@@ -234,6 +237,14 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (tab: 'home' |
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18 }}>Templates</h3>
               <button onClick={() => setShowTemplates(false)} style={{ fontSize: 22 }}>✕</button>
             </div>
+            {missingRoutineFavorites.length > 0 && (
+              <details style={{ marginBottom: 16, color: 'var(--muted)', fontSize: 12 }}>
+                <summary>Heart these exercises in Profile to add your five routine templates</summary>
+                <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                  {missingRoutineFavorites.map(name => <li key={name}>{name}</li>)}
+                </ul>
+              </details>
+            )}
             {templates.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>
                 No templates yet. Save a workout from History as a template.
