@@ -15,7 +15,7 @@ Track your workouts, see progress with candlestick charts, and keep all your dat
 - Training days roll over at 06:00 Sweden time (Europe/Stockholm), so late-night workouts count toward the previous day across history, summaries, and progress charts
 - View progress with TradingView-style candlestick charts
 - Track your bodyweight over time
-- Plan your week in Profile → Routine - Splits: fixed Monday–Sunday rows with editable muscle groups and notes, saved automatically offline and included in backups
+- Plan your week in Profile → Routine - Splits: fixed Monday–Sunday rows prefilled with your weekly split, plus editable notes, saved automatically offline and included in backups
 - Export and restore all your data as a JSON backup
 - Dark and light themes
 
