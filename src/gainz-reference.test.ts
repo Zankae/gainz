@@ -7,6 +7,7 @@ import {
   saveDraftWorkout,
   getDraftWorkout,
   startWorkout,
+  copyLastTimeSets,
   finishWorkout,
   getActiveWorkout,
   chartRowsForExercise,
@@ -95,6 +96,35 @@ describe('GAINZ reference data layer', () => {
     const finishedRows = await db.sets.where('workoutId').equals(emptyId).toArray();
     expect(finishedRows).toHaveLength(1);
     expect(finishedRows[0].reps).toBe(8);
+  });
+
+  it.each([1, 3])('persists Use Last Time over %i active set(s) with editable IDs', async (count) => {
+    const previousSets = [{ weightKg: 17.75, reps: 12 }, { weightKg: 20.5, reps: 8 }];
+    await saveDraftWorkout({ exercises: [{ exerciseId: 1, sets: previousSets }] });
+    await finishWorkout(await startWorkout());
+    const history = await lastPerformance(1);
+
+    const otherExercise = { exerciseId: 2, sets: [{ weightKg: 0, reps: 15 }] };
+    await saveDraftWorkout({ exercises: [
+      { exerciseId: 1, sets: Array.from({ length: count }, () => ({ weightKg: 0, reps: 0 })) },
+      otherExercise,
+    ] });
+    const workoutId = await startWorkout();
+    const [target, other] = await db.workoutExercises.where('workoutId').equals(workoutId).sortBy('order');
+    const setsFor = (id: number) => db.sets.where('workoutExerciseId').equals(id).sortBy('order');
+    const otherSets = await setsFor(other.id!);
+    const copied = await copyLastTimeSets(target.id!, history);
+
+    db.close();
+    await db.open();
+    expect(await setsFor(target.id!)).toEqual(copied);
+    expect(copied).toMatchObject(previousSets.map((set, order) => ({
+      ...set, id: expect.any(Number), workoutId, workoutExerciseId: target.id, exerciseId: 1, order,
+    })));
+    await db.sets.update(copied[1].id!, { reps: 9 });
+    expect((await setsFor(target.id!))[1].reps).toBe(9);
+    expect(await setsFor(other.id!)).toEqual(otherSets);
+    expect(await lastPerformance(1)).toEqual(history);
   });
 
   it('feeds chart sessions with the actual workout start and preserves decimal volume', async () => {

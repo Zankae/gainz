@@ -237,6 +237,31 @@ export async function getActiveWorkout(): Promise<Workout | undefined> {
   return db.workouts.where('endedAt').equals(0).first();
 }
 
+/** Copy the displayed performance into the active exercise, keeping its editable row IDs. */
+export async function copyLastTimeSets(workoutExerciseId: number, lastSets: SetEntry[]): Promise<SetEntry[]> {
+  return db.transaction('rw', db.workouts, db.workoutExercises, db.sets, async () => {
+    const target = await db.workoutExercises.get(workoutExerciseId);
+    if (!target || (await db.workouts.get(target.workoutId))?.endedAt !== 0) {
+      throw new Error('This exercise is no longer in an active workout');
+    }
+    const existing = await db.sets.where('workoutExerciseId').equals(workoutExerciseId).sortBy('order');
+    const performedAt = Date.now();
+    const copies = lastSets.map(({ weightKg, reps }, order) => ({
+      id: existing[order]?.id,
+      workoutExerciseId,
+      workoutId: target.workoutId,
+      exerciseId: target.exerciseId,
+      performedAt,
+      order,
+      weightKg,
+      reps,
+    }));
+    const ids = await db.sets.bulkPut(copies, { allKeys: true });
+    await db.sets.bulkDelete(existing.slice(copies.length).map(set => set.id!));
+    return copies.map((set, index) => ({ ...set, id: ids[index] }));
+  });
+}
+
 /**
  * A workout begins ONLY here. The transaction prevents a double-tap from
  * creating two active workouts and atomically converts the persisted draft

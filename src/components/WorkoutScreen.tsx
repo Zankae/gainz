@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   db,
+  copyLastTimeSets,
   getActiveWorkout,
   getDraftWorkout,
   saveDraftWorkout,
@@ -239,16 +240,25 @@ export default function WorkoutScreen() {
 
   const useLastTime = async (exIndex: number) => {
     const ex = exercises[exIndex];
-    const last = await lastPerformance(ex.exerciseId);
-    if (!last.length) return;
-    const newExs = [...exercises];
-    newExs[exIndex] = {
-      ...ex,
-      sets: last.map(s => ({ id: undefined, weightKg: s.weightKg, reps: s.reps })),
-      lastTime: last,
-    };
-    setExercises(newExs);
-    if (!workout) await persistDraftIfNeeded(newExs);
+    if (!ex.lastTime?.length) return;
+    try {
+      if (workout) {
+        if (ex.weId === undefined) return;
+        const sets = await copyLastTimeSets(ex.weId, ex.lastTime);
+        setExercises(current => current.map(item => item.weId === ex.weId ? { ...item, sets } : item));
+      } else {
+        const sets = ex.lastTime.map(({ weightKg, reps }) => ({ weightKg, reps }));
+        const newExs = exercises.map((item, index) => index === exIndex ? { ...item, sets } : item);
+        setExercises(newExs);
+        await persistDraftIfNeeded(newExs);
+      }
+    } catch (err) {
+      setConfirm({
+        title: 'Could not save sets',
+        message: err instanceof Error ? err.message : 'Please try again.',
+        onConfirm: () => setConfirm(null),
+      });
+    }
   };
 
   // --- Start workout ---
