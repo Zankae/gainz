@@ -10,6 +10,7 @@ import {
   copyLastTimeSets,
   finishWorkout,
   getActiveWorkout,
+  chartRowsForAllExercises,
   chartRowsForExercise,
   exportBackup,
   restoreBackup,
@@ -147,6 +148,38 @@ describe('GAINZ reference data layer', () => {
     const sessions = sessionsFromSets(rows);
     expect(sessions[0].at).toBe(startedAt);
     expect(sessions[0].volumeKg).toBe(21.75);
+  });
+
+  it('loads logged sets from all completed workouts, including hidden and archived exercises', async () => {
+    await seedIfEmpty();
+    await db.exercises.update(2, { hidden: true });
+    await db.exercises.update(3, { hidden: true, archived: true });
+
+    await saveDraftWorkout({ exercises: [
+      { exerciseId: 1, sets: [{ weightKg: 30, reps: 10 }] },
+      { exerciseId: 2, sets: [{ weightKg: 15.5, reps: 8 }] },
+    ] });
+    const first = await startWorkout();
+    await finishWorkout(first);
+    const oldStart = Date.parse('2025-12-31T22:00:00Z');
+    await db.workouts.update(first, { startedAt: oldStart, endedAt: oldStart + 3600_000 });
+
+    await saveDraftWorkout({ exercises: [{ exerciseId: 3, sets: [
+      { weightKg: 20, reps: 5 }, { weightKg: 50, reps: 0 },
+    ] }] });
+    const second = await startWorkout();
+    const secondStart = (await db.workouts.get(second))!.startedAt;
+    expect(await chartRowsForAllExercises()).toMatchObject([
+      { workoutId: first, exerciseId: 1, workoutStartedAt: oldStart },
+      { workoutId: first, exerciseId: 2, workoutStartedAt: oldStart },
+    ]);
+
+    await finishWorkout(second);
+    const sessions = sessionsFromSets(await chartRowsForAllExercises());
+    expect(sessions).toMatchObject([
+      { at: oldStart, sets: 2, volumeKg: 424 },
+      { at: secondStart, sets: 1, volumeKg: 100 },
+    ]);
   });
 
   it('validates a restore before clearing and restores a valid backup', async () => {

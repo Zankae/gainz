@@ -362,21 +362,29 @@ export type ChartSetRow = SetEntry & { workoutStartedAt: number };
  * start time, not by whichever set happened to be entered first.
  */
 export async function chartRowsForExercise(exerciseId: number): Promise<ChartSetRow[]> {
-  const rows = (await setsForExercise(exerciseId)).filter(row => row.reps > 0);
-  const ids = [...new Set(rows.map(row => row.workoutId))];
-  const workouts = await db.workouts.bulkGet(ids);
-  const starts = new Map<number, number>();
-  workouts.forEach((workout, index) => {
-    // Active workouts are durable working state, not history. They enter charts
-    // only after Finish commits an endedAt timestamp.
-    if (workout && workout.endedAt > 0) starts.set(ids[index], workout.startedAt);
+  return chartRows(exerciseId);
+}
+
+export async function chartRowsForAllExercises(): Promise<ChartSetRow[]> {
+  return chartRows();
+}
+
+async function chartRows(exerciseId?: number): Promise<ChartSetRow[]> {
+  return db.transaction('r', db.sets, db.workouts, async () => {
+    const sets = exerciseId === undefined ? await db.sets.toArray() : await setsForExercise(exerciseId);
+    const rows = sets.filter(row => row.reps > 0);
+    const ids = [...new Set(rows.map(row => row.workoutId))];
+    const workouts = await db.workouts.bulkGet(ids);
+    const starts = new Map<number, number>();
+    workouts.forEach((workout, index) => {
+      // Sets enter progress charts once Finish commits the workout to history.
+      if (workout && workout.endedAt > 0) starts.set(ids[index], workout.startedAt);
+    });
+    return rows.flatMap(row => {
+      const workoutStartedAt = starts.get(row.workoutId);
+      return workoutStartedAt === undefined ? [] : [{ ...row, workoutStartedAt }];
+    });
   });
-  return rows
-    .filter(row => starts.has(row.workoutId))
-    .map(row => ({
-      ...row,
-      workoutStartedAt: starts.get(row.workoutId) as number,
-    }));
 }
 
 /* ---------- previous performance & personal bests ---------- */

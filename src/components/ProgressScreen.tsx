@@ -1,9 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, chartRowsForExercise, type Exercise } from '../gainz-db';
+import { db, chartRowsForAllExercises, chartRowsForExercise, setVolumeKg, type ChartSetRow, type Exercise } from '../gainz-db';
 import CandlestickChart from './CandlestickChart';
 import { getTrainingPeriodKey, type Period } from '../gainz-candles';
 
-type ProgressTab = 'strength' | 'volume';
+const PROGRESS_TABS = [
+  { key: 'strength', label: 'Strength' },
+  { key: 'volume', label: 'Volume' },
+  { key: 'total-volume', label: 'Total Volume' },
+] as const;
+
+type ProgressTab = typeof PROGRESS_TABS[number]['key'];
 
 const VOL_PERIODS: { key: Period; label: string }[] = [
   { key: 'Day', label: '1D' }, { key: 'Week', label: '1W' }, { key: 'Month', label: '1M' }, { key: 'Year', label: '1Y' },
@@ -14,8 +20,6 @@ export default function ProgressScreen() {
   const [selectedExId, setSelectedExId] = useState<number | null>(null);
   const [tab, setTab] = useState<ProgressTab>('strength');
   const [volPeriod, setVolPeriod] = useState<Period>('Week');
-  const [volumeData, setVolumeData] = useState<{ label: string; volume: number }[]>([]);
-  const [volumeLoading, setVolumeLoading] = useState(false);
 
   useEffect(() => {
     db.exercises.toArray().then(all => {
@@ -27,86 +31,48 @@ export default function ProgressScreen() {
     });
   }, []);
 
-  // Load volume data when exercise or period changes
-  useEffect(() => {
-    if (!selectedExId || tab !== 'volume') return;
-    setVolumeLoading(true);
-    (async () => {
-      const rows = await chartRowsForExercise(selectedExId);
-      const buckets = new Map<string, { volume: number; at: number }>();
-      for (const r of rows) {
-        const key = getTrainingPeriodKey(r.workoutStartedAt, volPeriod);
-        const existing = buckets.get(key);
-        buckets.set(key, { volume: (existing?.volume || 0) + r.weightKg * r.reps, at: r.workoutStartedAt! });
-      }
-      const data = Array.from(buckets.entries())
-        .sort((a, b) => a[1].at - b[1].at)
-        .map(([label, v]) => ({ label, volume: v.volume }));
-      setVolumeData(data);
-      setVolumeLoading(false);
-    })();
-  }, [selectedExId, tab, volPeriod]);
-
   const selectedExercise = useMemo(
     () => exercises.find(e => e.id === selectedExId),
     [exercises, selectedExId],
   );
+  const volumeScope = tab === 'total-volume' ? 'all' : selectedExId;
 
   return (
     <div style={{ padding: '12px 16px', paddingBottom: 80, overflow: 'hidden' }}>
       <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 16 }}>Progress</h2>
 
       {/* Exercise selector — custom dropdown with favorites */}
-      <ExerciseSelect exercises={exercises} selectedId={selectedExId} onSelect={setSelectedExId} />
+      {tab !== 'total-volume' && (
+        <ExerciseSelect exercises={exercises} selectedId={selectedExId} onSelect={setSelectedExId} />
+      )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', padding: 2, marginBottom: 12 }}>
-        <button
-          onClick={() => setTab('strength')}
-          style={{
-            flex: 1,
-            padding: '8px 0',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: 13,
-            fontWeight: 600,
-            background: tab === 'strength' ? 'var(--accent)' : 'transparent',
-            color: tab === 'strength' ? 'var(--on-accent)' : 'var(--muted)',
-          }}
-        >
-          Strength
-        </button>
-        <button
-          onClick={() => setTab('volume')}
-          style={{
-            flex: 1,
-            padding: '8px 0',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: 13,
-            fontWeight: 600,
-            background: tab === 'volume' ? 'var(--accent)' : 'transparent',
-            color: tab === 'volume' ? 'var(--on-accent)' : 'var(--muted)',
-          }}
-        >
-          Volume
-        </button>
+      <div role="group" aria-label="Progress charts" style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', padding: 2, marginBottom: 12 }}>
+        {PROGRESS_TABS.map(({ key, label }) => (
+          <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)} style={{
+            flex: 1, padding: '8px 0', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600,
+            background: tab === key ? 'var(--accent)' : 'transparent',
+            color: tab === key ? 'var(--on-accent)' : 'var(--muted)',
+          }}>{label}</button>
+        ))}
       </div>
 
       {tab === 'strength' && selectedExercise && (
         <CandlestickChart exercise={selectedExercise} />
       )}
 
-      {tab === 'volume' && (
+      {tab !== 'strength' && (
         <>
-          <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', padding: 2, marginBottom: 12 }}>
+          <div role="group" aria-label="Volume period" style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', padding: 2, marginBottom: 12 }}>
             {VOL_PERIODS.map(p => (
-              <button key={p.key} onClick={() => setVolPeriod(p.key)} style={{
+              <button key={p.key} aria-label={p.key} aria-pressed={volPeriod === p.key} onClick={() => setVolPeriod(p.key)} style={{
                 flex: 1, padding: '6px 0', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 600,
                 background: volPeriod === p.key ? 'var(--accent)' : 'transparent',
                 color: volPeriod === p.key ? 'var(--on-accent)' : 'var(--muted)',
               }}>{p.label}</button>
             ))}
           </div>
-          <VolumeBarChart data={volumeData} loading={volumeLoading} />
+          <VolumeChart key={volumeScope ?? 'none'} scope={volumeScope} period={volPeriod} />
         </>
       )}
     </div>
@@ -114,6 +80,42 @@ export default function ProgressScreen() {
 }
 
 /* ---- Volume bar chart ---- */
+
+function VolumeChart({ scope, period }: { scope: 'all' | number | null; period: Period }) {
+  const [rows, setRows] = useState<ChartSetRow[] | 'error'>();
+
+  useEffect(() => {
+    if (scope === null) return;
+    let current = true;
+    const request = scope === 'all' ? chartRowsForAllExercises() : chartRowsForExercise(scope);
+    request.then(
+      result => { if (current) setRows(result); },
+      () => { if (current) setRows('error'); },
+    );
+    return () => { current = false; };
+  }, [scope]);
+
+  const data = useMemo(() => {
+    if (!rows || rows === 'error') return [];
+    const workoutPeriods = new Map<number, string>();
+    const totals = new Map<string, number>();
+    for (const row of rows) {
+      let label = workoutPeriods.get(row.workoutId);
+      if (label === undefined) {
+        label = getTrainingPeriodKey(row.workoutStartedAt, period);
+        workoutPeriods.set(row.workoutId, label);
+      }
+      totals.set(label, (totals.get(label) ?? 0) + setVolumeKg(row.weightKg, row.reps));
+    }
+    return Array.from(totals, ([label, volume]) => ({ label, volume }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [rows, period]);
+
+  if (rows === 'error') {
+    return <div role="alert" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Could not load workout volume.</div>;
+  }
+  return <VolumeBarChart data={data} loading={scope !== null && rows === undefined} />;
+}
 
 function VolumeBarChart({ data, loading }: { data: { label: string; volume: number }[]; loading: boolean }) {
   if (loading) {
@@ -132,7 +134,7 @@ function VolumeBarChart({ data, loading }: { data: { label: string; volume: numb
   const PAD = { top: 20, right: 20, bottom: 30, left: 50 };
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
-  const maxV = Math.max(...data.map(d => d.volume));
+  const maxV = data.reduce((max, d) => Math.max(max, d.volume), 0);
 
   // Read CSS tokens
   const colors = (() => {
@@ -145,8 +147,9 @@ function VolumeBarChart({ data, loading }: { data: { label: string; volume: numb
     };
   })();
 
-  const barW = Math.max(4, (plotW / data.length) * 0.7);
   const gap = plotW / data.length;
+  const barW = gap * 0.7;
+  const labelStep = Math.ceil((data[0].label.length * 5 + 4) / gap);
 
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: 8 }}>
@@ -178,26 +181,18 @@ function VolumeBarChart({ data, loading }: { data: { label: string; volume: numb
               fill={colors.accent}
               rx={2}
               opacity={0.8}
-            />
+            >
+              <title>{`${d.label} · ${d.volume} kg`}</title>
+            </rect>
           );
         })}
 
         {/* X labels */}
-        {data.length <= 12
-          ? data.map((d, i) => (
-              <text key={i} x={PAD.left + i * gap + gap / 2} y={H - 6} textAnchor="middle" fill={colors.muted} fontSize="8">
-                {d.label}
-              </text>
-            ))
-          : data.filter((_, i) => i % Math.ceil(data.length / 6) === 0).map((d, i) => {
-              const idx = data.indexOf(d);
-              return (
-                <text key={i} x={PAD.left + idx * gap + gap / 2} y={H - 6} textAnchor="middle" fill={colors.muted} fontSize="8">
-                  {d.label}
-                </text>
-              );
-            })
-        }
+        {data.map((d, i) => i % labelStep === 0 && (
+          <text key={d.label} x={PAD.left + i * gap + gap / 2} y={H - 6} textAnchor="middle" fill={colors.muted} fontSize="8">
+            {d.label}
+          </text>
+        ))}
       </svg>
     </div>
   );
