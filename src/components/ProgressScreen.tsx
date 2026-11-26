@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, chartRowsForAllExercises, chartRowsForExercise, setVolumeKg, type ChartSetRow, type Exercise } from '../gainz-db';
+import { db, chartRowsForAllExercises, chartRowsForExercise, type ChartSetRow, type Exercise } from '../gainz-db';
+import { buildVolumePeriods, type VolumePeriod } from '../gainz-volume';
 import CandlestickChart from './CandlestickChart';
-import { getTrainingPeriodKey, type Period } from '../gainz-candles';
+import ChartDetails, { ChartPointButton } from './ChartDetails';
+import type { Period } from '../gainz-candles';
 
 const PROGRESS_TABS = [
   { key: 'strength', label: 'Strength' },
@@ -14,6 +16,8 @@ type ProgressTab = typeof PROGRESS_TABS[number]['key'];
 const VOL_PERIODS: { key: Period; label: string }[] = [
   { key: 'Day', label: '1D' }, { key: 'Week', label: '1W' }, { key: 'Month', label: '1M' }, { key: 'Year', label: '1Y' },
 ];
+
+const volumeFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
 
 export default function ProgressScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -95,29 +99,16 @@ function VolumeChart({ scope, period }: { scope: 'all' | number | null; period: 
     return () => { current = false; };
   }, [scope]);
 
-  const data = useMemo(() => {
-    if (!rows || rows === 'error') return [];
-    const workoutPeriods = new Map<number, string>();
-    const totals = new Map<string, number>();
-    for (const row of rows) {
-      let label = workoutPeriods.get(row.workoutId);
-      if (label === undefined) {
-        label = getTrainingPeriodKey(row.workoutStartedAt, period);
-        workoutPeriods.set(row.workoutId, label);
-      }
-      totals.set(label, (totals.get(label) ?? 0) + setVolumeKg(row.weightKg, row.reps));
-    }
-    return Array.from(totals, ([label, volume]) => ({ label, volume }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [rows, period]);
+  const data = useMemo(() => rows && rows !== 'error' ? buildVolumePeriods(rows, period) : [], [rows, period]);
 
   if (rows === 'error') {
     return <div role="alert" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Could not load workout volume.</div>;
   }
-  return <VolumeBarChart data={data} loading={scope !== null && rows === undefined} />;
+  return <VolumeBarChart key={period} data={data} showExerciseCount={scope === 'all'} loading={scope !== null && rows === undefined} />;
 }
 
-function VolumeBarChart({ data, loading }: { data: { label: string; volume: number }[]; loading: boolean }) {
+function VolumeBarChart({ data, loading, showExerciseCount }: { data: VolumePeriod[]; loading: boolean; showExerciseCount: boolean }) {
+  const [selected, setSelected] = useState<VolumePeriod | null>(null);
   if (loading) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading…</div>;
   }
@@ -134,7 +125,7 @@ function VolumeBarChart({ data, loading }: { data: { label: string; volume: numb
   const PAD = { top: 20, right: 20, bottom: 30, left: 50 };
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
-  const maxV = data.reduce((max, d) => Math.max(max, d.volume), 0);
+  const maxV = data.reduce((max, d) => Math.max(max, d.volumeKg), 0);
 
   // Read CSS tokens
   const colors = (() => {
@@ -149,7 +140,8 @@ function VolumeBarChart({ data, loading }: { data: { label: string; volume: numb
 
   const gap = plotW / data.length;
   const barW = gap * 0.7;
-  const labelStep = Math.ceil((data[0].label.length * 5 + 4) / gap);
+  const hitWidth = Math.min(gap, Math.max(barW, 24));
+  const labelStep = Math.ceil((data[0].key.length * 5 + 4) / gap);
 
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: 8 }}>
@@ -170,30 +162,38 @@ function VolumeBarChart({ data, loading }: { data: { label: string; volume: numb
 
         {/* Bars */}
         {data.map((d, i) => {
-          const barH = maxV > 0 ? (d.volume / maxV) * plotH : 0;
+          const barH = Math.max(1, maxV > 0 ? (d.volumeKg / maxV) * plotH : 0);
+          const cx = PAD.left + (i + 0.5) * gap;
+          const baseY = PAD.top + plotH;
+          const pressed = selected?.key === d.key;
+          const hitHeight = Math.max(24, barH);
           return (
-            <rect
-              key={d.label}
-              x={PAD.left + i * gap + (gap - barW) / 2}
-              y={PAD.top + plotH - barH}
-              width={barW}
-              height={Math.max(1, barH)}
-              fill={colors.accent}
-              rx={2}
-              opacity={0.8}
-            >
-              <title>{`${d.label} · ${d.volume} kg`}</title>
-            </rect>
+            <g key={d.key}>
+              <rect x={cx - barW / 2} y={baseY - barH} width={barW} height={barH}
+                fill={colors.accent} rx={2} opacity={pressed ? 1 : 0.8} />
+              <ChartPointButton x={cx - hitWidth / 2} y={baseY - hitHeight} width={hitWidth} height={hitHeight}
+                label={`${d.label} · ${volumeFormat.format(d.volumeKg)} kg`} pressed={pressed} onSelect={() => setSelected(d)} />
+            </g>
           );
         })}
 
         {/* X labels */}
         {data.map((d, i) => i % labelStep === 0 && (
-          <text key={d.label} x={PAD.left + i * gap + gap / 2} y={H - 6} textAnchor="middle" fill={colors.muted} fontSize="8">
-            {d.label}
+          <text key={d.key} x={PAD.left + i * gap + gap / 2} y={H - 6} textAnchor="middle" fill={colors.muted} fontSize="8">
+            {d.key}
           </text>
         ))}
       </svg>
+
+      {selected && (
+        <ChartDetails title={selected.label} onClose={() => setSelected(null)} stats={[
+          { label: 'Total volume', value: `${volumeFormat.format(selected.volumeKg)} kg` },
+          { label: 'Total reps', value: selected.reps.toLocaleString() },
+          { label: 'Sets', value: selected.sets.toLocaleString() },
+          { label: 'Workouts', value: selected.workouts.toLocaleString() },
+          ...(showExerciseCount ? [{ label: 'Exercises', value: selected.exercises.toLocaleString() }] : []),
+        ]} />
+      )}
     </div>
   );
 }

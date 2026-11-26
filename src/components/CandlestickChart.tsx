@@ -3,9 +3,10 @@ import { chartRowsForExercise, type Exercise } from '../gainz-db';
 import {
   sessionsFromSets, buildCandles, hasWick, candleLayout, priceScale,
   CHART, CHART_TOTAL_H, VOL_TOP,
-  type Period, type CandleMetric, type Candle,
+  type Period, type CandleMetric, type Candle, type Session,
 } from '../gainz-candles';
 import { useTheme } from '../theme';
+import ChartDetails, { ChartPointButton } from './ChartDetails';
 
 interface CandlestickChartProps { exercise: Exercise; }
 
@@ -20,27 +21,31 @@ export default function CandlestickChart({ exercise }: CandlestickChartProps) {
   const { theme } = useTheme();
   const [period, setPeriod] = useState<Period>('Week');
   const [metric, setMetric] = useState<CandleMetric>('weight');
-  const [candles, setCandles] = useState<Candle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [zoom, setZoom] = useState(52);
+  const [history, setHistory] = useState<{ exerciseId: number; sessions: Session[] | 'error' }>();
+  const [zoom, setZoom] = useState<number>();
   const [selectedCandle, setSelectedCandle] = useState<Candle | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const exerciseId = exercise.id;
+  const sessions = history?.exerciseId === exerciseId ? history?.sessions : undefined;
 
   useEffect(() => {
+    if (exerciseId === undefined) return;
     setSelectedCandle(null);
-    (async () => {
-      if (!exercise.id) return;
-      const rows = await chartRowsForExercise(exercise.id);
-      const sessions = sessionsFromSets(rows);
-      if (!sessions.length) { setCandles([]); setLoading(false); return; }
-      const c = buildCandles(sessions, period, metric);
-      setCandles(c);
-      setZoom(c.length);
-      setLoading(false);
-    })();
-  }, [exercise.id, period, metric]);
+    setZoom(undefined);
+    let current = true;
+    chartRowsForExercise(exerciseId).then(
+      rows => { if (current) setHistory({ exerciseId, sessions: sessionsFromSets(rows) }); },
+      () => { if (current) setHistory({ exerciseId, sessions: 'error' }); },
+    );
+    return () => { current = false; };
+  }, [exerciseId]);
 
-  const visible = useMemo(() => candles.slice(Math.max(0, candles.length - zoom)), [candles, zoom]);
+  const candles = useMemo(
+    () => sessions && sessions !== 'error' ? buildCandles(sessions, period, metric) : [],
+    [sessions, period, metric],
+  );
+  const visibleCount = zoom ?? candles.length;
+  const visible = useMemo(() => candles.slice(Math.max(0, candles.length - visibleCount)), [candles, visibleCount]);
 
   const colors = useMemo(() => {
     if (typeof document === 'undefined') return { gain: '#34D877', loss: '#F45B69', grid: '#232B36', muted: '#8A94A3' };
@@ -58,6 +63,8 @@ export default function CandlestickChart({ exercise }: CandlestickChartProps) {
   const layout = useMemo(() => candleLayout(visible.length, 320 - AXIS), [visible.length]);
   const scale = useMemo(() => priceScale(visible), [visible]);
   const volMax = useMemo(() => visible.length ? Math.max(...visible.map(c => c.volumeKg)) : 1, [visible]);
+  const hitWidth = Math.min(layout.slot, Math.max(layout.candleW, 24));
+  const decimals = metric === 'weight' ? 2 : 0;
 
   const candleBodyY = useCallback((c: Candle) => {
     const top = Math.max(c.o, c.c);
@@ -65,8 +72,16 @@ export default function CandlestickChart({ exercise }: CandlestickChartProps) {
     return { y: scale.y(top), h: Math.max(1, scale.y(bottom) - scale.y(top)) };
   }, [scale]);
 
-  if (loading) {
+  function resetSelection() {
+    setSelectedCandle(null);
+    setZoom(undefined);
+  }
+
+  if (sessions === undefined) {
     return <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)' }}>Loading chart…</div>;
+  }
+  if (sessions === 'error') {
+    return <div role="alert" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Could not load strength progress.</div>;
   }
   if (!candles.length) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>No data yet. Complete a workout to see progress.</div>;
@@ -78,7 +93,10 @@ export default function CandlestickChart({ exercise }: CandlestickChartProps) {
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', padding: 2 }}>
           {PERIODS.map(p => (
-            <button key={p.key} onClick={() => setPeriod(p.key)} style={{
+            <button key={p.key} onClick={() => {
+              if (period !== p.key) resetSelection();
+              setPeriod(p.key);
+            }} style={{
               padding: '4px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 600,
               background: period === p.key ? 'var(--accent)' : 'transparent',
               color: period === p.key ? 'var(--on-accent)' : 'var(--muted)',
@@ -87,7 +105,10 @@ export default function CandlestickChart({ exercise }: CandlestickChartProps) {
         </div>
         <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', padding: 2 }}>
           {METRICS.map(m => (
-            <button key={m.key} onClick={() => setMetric(m.key)} style={{
+            <button key={m.key} onClick={() => {
+              if (metric !== m.key) resetSelection();
+              setMetric(m.key);
+            }} style={{
               padding: '4px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 600,
               background: metric === m.key ? 'var(--accent)' : 'transparent',
               color: metric === m.key ? 'var(--on-accent)' : 'var(--muted)',
@@ -99,9 +120,9 @@ export default function CandlestickChart({ exercise }: CandlestickChartProps) {
       {candles.length > 4 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 30 }}>Zoom</span>
-          <input type="range" min={Math.min(candles.length, 4)} max={candles.length} value={zoom}
+          <input type="range" min={Math.min(candles.length, 4)} max={candles.length} value={visibleCount}
             onChange={e => setZoom(Number(e.target.value))} style={{ flex: 1, accentColor: 'var(--accent)' }} />
-          <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 30, fontFamily: 'var(--font-display)' }}>{zoom}</span>
+          <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 30, fontFamily: 'var(--font-display)' }}>{visibleCount}</span>
         </div>
       )}
 
@@ -146,18 +167,21 @@ export default function CandlestickChart({ exercise }: CandlestickChartProps) {
             const color = c.up ? colors.gain : colors.loss;
             const cx = AXIS + i * layout.slot + layout.slot / 2;
             const bx = AXIS + i * layout.slot + (layout.slot - layout.candleW) / 2;
+            const highY = scale.y(c.h);
+            const lowY = scale.y(c.l);
+            const hitTop = Math.max(0, highY - 8);
+            const hitBottom = Math.min(CHART.PRICE_H, Math.max(lowY, body.y + body.h) + 8);
 
             return (
               <g key={c.key}>
                 {/* Wick */}
                 {hasWick(c) && (
-                  <line x1={cx} x2={cx} y1={scale.y(c.h)} y2={scale.y(c.l)}
+                  <line x1={cx} x2={cx} y1={highY} y2={lowY}
                     stroke={color} strokeWidth={layout.wickW} />
                 )}
-                {/* Body — tappable */}
-                <rect x={bx} y={body.y} width={layout.candleW} height={body.h}
-                  fill={color} rx={2} style={{ cursor: 'pointer' }}
-                  onClick={() => setSelectedCandle(c)} />
+                <rect x={bx} y={body.y} width={layout.candleW} height={body.h} fill={color} rx={2} />
+                <ChartPointButton x={cx - hitWidth / 2} y={hitTop} width={hitWidth} height={hitBottom - hitTop}
+                  label={c.full} pressed={selectedCandle?.key === c.key} onSelect={() => setSelectedCandle(c)} />
                 {/* X label */}
                 {i % layout.labelEvery === 0 && (
                   <text x={cx} y={CHART_TOTAL_H - 2} textAnchor="middle" fill={colors.muted} fontSize="10">
@@ -170,33 +194,15 @@ export default function CandlestickChart({ exercise }: CandlestickChartProps) {
         </svg>
       </div>
 
-      {/* Selected candle OHLC readout — fixed overlay */}
       {selectedCandle && (
-        <div style={{
-          position: 'fixed', bottom: 72, left: '50%', transform: 'translateX(-50%)',
-          maxWidth: 440, width: 'calc(100% - 24px)', zIndex: 300,
-          padding: '12px 16px', borderRadius: 'var(--radius)', background: 'var(--surface)',
-          boxShadow: '0 -4px 20px var(--shadow)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700 }}>{selectedCandle.full}</span>
-            <button onClick={() => setSelectedCandle(null)} style={{ fontSize: 16, color: 'var(--muted)' }}>✕</button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, fontSize: 13 }}>
-            <div style={{ color: 'var(--muted)' }}>Open</div>
-            <div style={{ fontFamily: 'var(--font-display)', textAlign: 'right' }}>{selectedCandle.o.toFixed(metric === 'weight' ? 2 : 0)}</div>
-            <div style={{ color: 'var(--muted)' }}>High</div>
-            <div style={{ fontFamily: 'var(--font-display)', textAlign: 'right', color: 'var(--gain)' }}>{selectedCandle.h.toFixed(metric === 'weight' ? 2 : 0)}</div>
-            <div style={{ color: 'var(--muted)' }}>Low</div>
-            <div style={{ fontFamily: 'var(--font-display)', textAlign: 'right', color: 'var(--loss)' }}>{selectedCandle.l.toFixed(metric === 'weight' ? 2 : 0)}</div>
-            <div style={{ color: 'var(--muted)' }}>Close</div>
-            <div style={{ fontFamily: 'var(--font-display)', textAlign: 'right' }}>{selectedCandle.c.toFixed(metric === 'weight' ? 2 : 0)}</div>
-            <div style={{ color: 'var(--muted)' }}>Volume</div>
-            <div style={{ fontFamily: 'var(--font-display)', textAlign: 'right' }}>{Math.round(selectedCandle.volumeKg)} kg</div>
-            <div style={{ color: 'var(--muted)' }}>Sets</div>
-            <div style={{ fontFamily: 'var(--font-display)', textAlign: 'right' }}>{selectedCandle.sets}</div>
-          </div>
-        </div>
+        <ChartDetails title={selectedCandle.full} onClose={() => setSelectedCandle(null)} stats={[
+          { label: 'Open', value: selectedCandle.o.toFixed(decimals) },
+          { label: 'High', value: selectedCandle.h.toFixed(decimals), color: 'var(--gain)' },
+          { label: 'Low', value: selectedCandle.l.toFixed(decimals), color: 'var(--loss)' },
+          { label: 'Close', value: selectedCandle.c.toFixed(decimals) },
+          { label: 'Volume', value: `${Math.round(selectedCandle.volumeKg)} kg` },
+          { label: 'Sets', value: selectedCandle.sets },
+        ]} />
       )}
     </div>
   );

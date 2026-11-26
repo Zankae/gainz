@@ -101,6 +101,10 @@ const FULL: Record<Period, (d: Date) => string> = {
   Year:  d => `${d.getUTCFullYear()}`,
 };
 
+export function getTrainingPeriodLabel(at: number, period: Period): string {
+  return FULL[period](getTrainingDate(at));
+}
+
 /* ---------- the model ---------- */
 
 /**

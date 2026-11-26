@@ -19,6 +19,7 @@ import {
   bestWeightKg,
 } from './gainz-db';
 import { buildCandles, hasWick, sessionsFromSets, candleLayout } from './gainz-candles';
+import { buildVolumePeriods } from './gainz-volume';
 
 beforeEach(async () => {
   db.close();
@@ -168,18 +169,24 @@ describe('GAINZ reference data layer', () => {
       { weightKg: 20, reps: 5 }, { weightKg: 50, reps: 0 },
     ] }] });
     const second = await startWorkout();
-    const secondStart = (await db.workouts.get(second))!.startedAt;
     expect(await chartRowsForAllExercises()).toMatchObject([
       { workoutId: first, exerciseId: 1, workoutStartedAt: oldStart },
       { workoutId: first, exerciseId: 2, workoutStartedAt: oldStart },
     ]);
 
     await finishWorkout(second);
-    const sessions = sessionsFromSets(await chartRowsForAllExercises());
+    const secondStart = Date.parse('2026-01-01T04:00:00Z');
+    await db.workouts.update(second, { startedAt: secondStart, endedAt: secondStart + 3600_000 });
+    const rows = await chartRowsForAllExercises();
+    const sessions = sessionsFromSets(rows);
     expect(sessions).toMatchObject([
       { at: oldStart, sets: 2, volumeKg: 424 },
       { at: secondStart, sets: 1, volumeKg: 100 },
     ]);
+    expect(buildVolumePeriods(rows, 'Day')).toEqual([{
+      key: '2025-12-31', label: '31 Dec 2025', volumeKg: 524, reps: 23, sets: 3, workouts: 2, exercises: 3,
+    }]);
+    expect(buildVolumePeriods(rows, 'Week')[0].label).toBe('Week 1, 2026');
   });
 
   it('validates a restore before clearing and restores a valid backup', async () => {
